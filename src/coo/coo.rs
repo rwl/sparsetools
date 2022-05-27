@@ -1,15 +1,12 @@
 use crate::coord::coo_tocsr;
 use crate::csc::CSC;
 use crate::csr::CSR;
-use crate::Scalar;
-use num_traits::PrimInt;
-use rand::Rng;
+use crate::traits::{Integer, Scalar};
 use std::cmp::min;
-use std::collections::HashSet;
 
 /// A sparse matrix with scalar values stored in Coordinate format
 /// (also called "aij", "ijv" or "triplet" format).
-pub struct Coo<I: PrimInt, T: Scalar> {
+pub struct Coo<I: Integer, T: Scalar> {
     pub rows: I,
     pub cols: I,
     /// Row indexes (size nnz).
@@ -20,7 +17,7 @@ pub struct Coo<I: PrimInt, T: Scalar> {
     pub data: Vec<T>,
 }
 
-impl<I: PrimInt, T: Scalar> Coo<I, T> {
+impl<I: Integer, T: Scalar> Coo<I, T> {
     /// Creates a new coordinate matrix. Inputs are not copied. An error
     /// is returned if the slice arguments do not have the same length.
     pub fn new(
@@ -65,18 +62,18 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
         let mut data = Vec::<T>::with_capacity(m * n);
 
         for (i, r) in a.iter().enumerate() {
-            for (j, v) in r.iter().enumerate() {
+            for (j, &v) in r.iter().enumerate() {
                 if v != T::zero() {
-                    rowidx.push(i);
-                    colidx.push(j);
+                    rowidx.push(I::from(i).unwrap());
+                    colidx.push(I::from(j).unwrap());
                     data.push(v);
                 }
             }
         }
 
         Self {
-            rows: m,
-            cols: n,
+            rows: I::from(m).unwrap(),
+            cols: I::from(n).unwrap(),
             rowidx,
             colidx,
             data,
@@ -96,81 +93,82 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
     }
 
     /// Diagonal creates a coordinate matrix with the given diagonal.
-    pub fn diagonal(diag: &[T]) -> Self {
+    pub fn with_diagonal(diag: &[T]) -> Self {
         let n = diag.len();
         let mut rowidx = vec![I::zero(); n];
         let mut colidx = vec![I::zero(); n];
         let mut data = vec![T::zero(); n];
         for i in 0..n {
-            rowidx[i] = i;
-            colidx[i] = i;
+            rowidx[i] = I::from(i).unwrap();
+            colidx[i] = I::from(i).unwrap();
             data[i] = diag[i];
         }
         Self {
-            rows: n,
-            cols: n,
+            rows: I::from(n).unwrap(),
+            cols: I::from(n).unwrap(),
             rowidx,
             colidx,
             data,
         }
     }
 
-    /// Generates a coordinate matrix with the given size and
-    /// density with randomly distributed values.
-    pub fn random(rows: I, cols: I, density: f64) -> Self {
-        let mut rng = rand::thread_rng();
-
-        let density = match density {
-            _ if density < 0.0 => 0,
-            _ if density > 1.0 => 1.0,
-            _ => density,
-        };
-
-        let size = rows * cols;
-
-        let nnz = (density * (rows * cols) as f64) as usize;
-
-        let mut idx = vec![I::zero(); nnz];
-        let mut selected = HashSet::new();
-        for i in 0..nnz {
-            let mut j = rng.gen_range(0..size);
-            loop {
-                if !selected.contains(&j) {
-                    break;
-                }
-                j = rng.gen_range(size);
-            }
-            selected.insert(j);
-            idx[i] = j;
-        }
-
-        let mut colidx = vec![I::zero(); nnz];
-        let mut rowidx = vec![I::zero(); nnz];
-        for (i, v) in idx.iter().enumerate() {
-            colidx[i] = ((v as f64) * 1.0 / (rows as f64)).floor() as usize;
-            rowidx[i] = v - colidx[i] * rows;
-        }
-        let mut data = vec![T::zero(); nnz];
-        for i in 0..data.len() {
-            data[i] = rng.gen();
-        }
-
-        Self {
-            rows,
-            cols,
-            rowidx,
-            colidx,
-            data,
-        }
-    }
+    // /// Generates a coordinate matrix with the given size and
+    // /// density with randomly distributed values.
+    // pub fn random(rows: I, cols: I, density: f64) -> Self {
+    //     let mut rng = rand::thread_rng();
+    //
+    //     let density = match density {
+    //         _ if density < 0.0 => 0.0,
+    //         _ if density > 1.0 => 1.0,
+    //         _ => density,
+    //     };
+    //
+    //     let size = (rows * cols).to_usize().unwrap();
+    //
+    //     let nnz = (density * (rows * cols).to_f64().unwrap()) as usize;
+    //
+    //     let mut idx = vec![I::zero(); nnz];
+    //     let mut selected = HashSet::<usize>::new();
+    //     for i in 0..nnz {
+    //         let mut j = rng.gen_range(0..size);
+    //         loop {
+    //             if !selected.contains(&j) {
+    //                 break;
+    //             }
+    //             j = rng.gen_range(0..size);
+    //         }
+    //         selected.insert(j);
+    //         idx[i] = I::from(j).unwrap();
+    //     }
+    //
+    //     let mut colidx = vec![I::zero(); nnz];
+    //     let mut rowidx = vec![I::zero(); nnz];
+    //     for (i, &v) in idx.iter().enumerate() {
+    //         let c = (v.to_f64().unwrap() * 1.0 / rows.to_f64().unwrap()).floor();
+    //         colidx[i] = I::from(c).unwrap();
+    //         rowidx[i] = v - colidx[i] * rows;
+    //     }
+    //     let mut data = vec![T::zero(); nnz];
+    //     for i in 0..data.len() {
+    //         data[i] = rng.gen();
+    //     }
+    //
+    //     Self {
+    //         rows,
+    //         cols,
+    //         rowidx,
+    //         colidx,
+    //         data,
+    //     }
+    // }
 
     pub fn identity(n: I) -> Self {
-        let mut rowidx = vec![I::zero(); n];
-        let mut colidx = vec![I::zero(); n];
-        let mut data = vec![T::zero(); n];
-        for i in 0..n {
-            rowidx[i] = i;
-            colidx[i] = i;
+        let mut rowidx = vec![I::zero(); n.to_usize().unwrap()];
+        let mut colidx = vec![I::zero(); n.to_usize().unwrap()];
+        let mut data = vec![T::zero(); n.to_usize().unwrap()];
+        for i in 0..n.to_usize().unwrap() {
+            rowidx[i] = I::from(i).unwrap();
+            colidx[i] = I::from(i).unwrap();
             data[i] = T::one();
         }
         Self {
@@ -184,7 +182,7 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
 
     /// Returns the count of explicitly stored values (nonzeros).
     fn nnz(&self) -> I {
-        self.data.len()
+        I::from(self.data.len()).unwrap()
     }
 
     // Copy creates an identical coordinate matrix with newly allocated
@@ -205,7 +203,7 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
 
     /// Creates a coordinate matrix that is the transpose of the
     /// receiver. The underlying index and data slices are not copied.
-    fn transpose(&self) -> Coo<I, T> {
+    pub fn transpose(&self) -> Coo<I, T> {
         Coo {
             rows: self.cols,
             cols: self.rows,
@@ -216,22 +214,22 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
     }
 
     /// An alias for `transpose`.
-    fn t(&self) -> Coo<I, T> {
+    pub fn t(&self) -> Coo<I, T> {
         self.transpose()
     }
 
     /// Converts the matrix to Compressed Sparse Column (CSC) format.
     /// Duplicate entries are summed.
     pub fn to_csc(&self) -> CSC<I, T> {
-        let nnz = self.nnz();
+        let nnz = self.nnz().to_usize().unwrap();
         let mut rowidx = vec![I::zero(); nnz];
-        let mut colptr = vec![I::zero(); self.cols + 1];
+        let mut colptr = vec![I::zero(); self.cols.to_usize().unwrap() + 1];
         let mut data = vec![T::zero(); nnz];
 
         coo_tocsr(
             self.cols,
             self.rows,
-            nnz,
+            self.nnz(),
             &self.colidx,
             &self.rowidx,
             &self.data,
@@ -240,23 +238,29 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
             &mut data,
         );
 
-        let mut A = CSC::new(self.rows, self.cols, rowidx, colptr, data)?;
+        let mut A = CSC {
+            rows: self.rows,
+            cols: self.cols,
+            rowidx,
+            colptr,
+            data,
+        };
         A.sum_duplicates();
         A
     }
 
     /// Converts the matrix into Compressed Sparse Row (CSR) format.
     /// Duplicate entries are summed.
-    fn to_csr(&self) -> CSR<I, T> {
-        let nnz = self.nnz();
-        let mut rowptr = vec![I::zero(); self.rows + 1];
+    pub fn to_csr(&self) -> CSR<I, T> {
+        let nnz = self.nnz().to_usize().unwrap();
+        let mut rowptr = vec![I::zero(); self.rows.to_usize().unwrap() + 1];
         let mut colidx = vec![I::zero(); nnz];
         let mut data = vec![T::zero(); nnz];
 
         coo_tocsr(
             self.rows,
             self.cols,
-            nnz,
+            self.nnz(),
             &self.rowidx,
             &self.colidx,
             &self.data,
@@ -277,26 +281,30 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
     }
 
     /// Converts the matrix into a dense 2D slice.
-    fn to_dense(&self) -> Vec<Vec<T>> {
-        let dense = vec![vec![T::zero(); self.cols], self.rows];
+    pub fn to_dense(&self) -> Vec<Vec<T>> {
+        let rows = self.rows.to_usize().unwrap();
+        let cols = self.cols.to_usize().unwrap();
+        let mut dense = vec![vec![T::zero(); cols]; rows];
         // for i := range dense {
         // 	dense[i] = make([]float64, mat.cols)
         // }
-        for n in 0..self.nnz() {
-            dense[self.rowidx[n]][self.colidx[n]] += self.data[n];
+        for n in 0..self.nnz().to_usize().unwrap() {
+            let i = self.rowidx[n].to_usize().unwrap();
+            let j = self.colidx[n].to_usize().unwrap();
+            dense[i][j] = dense[i][j] + self.data[n];
         }
         dense
     }
 
     /// Provides the upper triangular portion of the matrix in
     /// coordinate format.
-    fn upper(&self, k: usize) -> Coo<I, T> {
-        let c = (self.nnz() / 2) + self.cols;
+    pub fn upper(&self, k: I) -> Coo<I, T> {
+        let c = (self.nnz().to_usize().unwrap() / 2) + self.cols.to_usize().unwrap();
         let mut rowidx = Vec::with_capacity(c);
         let mut colidx = Vec::with_capacity(c);
         let mut data = Vec::with_capacity(c);
 
-        for i in 0..self.nnz() {
+        for i in 0..self.nnz().to_usize().unwrap() {
             if self.rowidx[i] + k <= self.colidx[i] {
                 rowidx.push(self.rowidx[i]);
                 colidx.push(self.colidx[i]);
@@ -314,13 +322,14 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
     }
 
     /// Returns a slice of the elements on the main diagonal.
-    fn Diagonal(&self) -> Vec<T> {
-        let n = min(self.rows, self.cols);
+    pub fn diagonal(&self) -> Vec<T> {
+        let n = min(self.rows, self.cols).to_usize().unwrap();
         let mut d = vec![T::zero(); n];
         for i in 0..self.data.len() {
             let r = self.rowidx[i];
             if r == self.colidx[i] {
-                d[r] += self.data[i];
+                let j = r.to_usize().unwrap();
+                d[j] = d[j] + self.data[i];
             }
         }
         d
@@ -328,12 +337,12 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
 
     /// Creates a CSR matrix that is the element-wise sum of the
     /// receiver and the given matrix.
-    fn add(&self, m: &Coo<I, T>) -> CSR<I, T> {
+    pub fn add(&self, m: &Coo<I, T>) -> CSR<I, T> {
         // if m == nil {
         // 	return mat.ToCSR()
         // }
         let k = self.nnz();
-        let nnz = k + m.nnz();
+        let nnz = (k + m.nnz()).to_usize().unwrap();
 
         // let rowidx = vec![I::zero(); nnz];
         let mut rowidx = Vec::with_capacity(nnz);
@@ -366,13 +375,13 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
         A.to_csr() // Duplicate entries are summed.
     }
 
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         let mut buf: String = String::new();
-        for i in 0..self.nnz() {
+        for i in 0..self.nnz().to_usize().unwrap() {
             if !buf.is_empty() {
                 buf.push('\n');
             }
-            buf.push_str(format!(
+            buf.push_str(&format!(
                 "({}, {}) {}",
                 self.rowidx[i], self.colidx[i], self.data[i]
             ));
@@ -384,30 +393,30 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
     /// given input matrices. The matrix arguments must have the same number
     /// of columns.
     pub fn v_stack(A: &Coo<I, T>, B: &Coo<I, T>) -> Result<Coo<I, T>, String> {
-        if A.Cols() != B.Cols() {
+        if A.cols != B.cols {
             return Err(format!("cols mismatch {} != {}", A.cols, B.cols));
         }
 
         let mut shifted = vec![I::zero(); B.rowidx.len()];
-        for (i, r) in B.rowidx.iter().enumerate() {
+        for (i, &r) in B.rowidx.iter().enumerate() {
             shifted[i] = r + A.rows;
         }
 
         let rows = A.rows + B.rows;
         let cols = A.cols;
-        let nnz = A.nnz() + B.nnz();
+        let nnz = (A.nnz() + B.nnz()).to_usize().unwrap();
 
         let mut rowidx = Vec::with_capacity(nnz);
-        rowidx.push(A.rowidx);
-        rowidx.push(shifted);
+        rowidx.extend(&A.rowidx);
+        rowidx.extend(&shifted);
 
         let mut colidx = Vec::with_capacity(nnz);
-        colidx.push(A.colidx);
-        colidx.push(B.colidx);
+        colidx.extend(&A.colidx);
+        colidx.extend(&B.colidx);
 
         let mut data = Vec::with_capacity(nnz);
-        data.push(A.data);
-        data.push(B.data);
+        data.extend(&A.data);
+        data.extend(&B.data);
 
         Ok(Coo {
             rows,
@@ -427,25 +436,25 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
         }
 
         let mut shifted = vec![I::zero(); B.colidx.len()];
-        for (i, c) in B.colidx.iter().enumerate() {
-            shifted[i] += c + A.cols
+        for (i, &c) in B.colidx.iter().enumerate() {
+            shifted[i] = shifted[i] + (c + A.cols)
         }
 
         let rows = A.rows;
         let cols = A.cols + B.cols;
-        let nnz = A.nnz() + B.nnz();
+        let nnz = (A.nnz() + B.nnz()).to_usize().unwrap();
 
         let mut rowidx = Vec::with_capacity(nnz);
-        rowidx.push(A.rowidx);
-        rowidx.push(B.rowidx);
+        rowidx.extend(&A.rowidx);
+        rowidx.extend(&B.rowidx);
 
         let mut colidx = Vec::with_capacity(nnz);
-        colidx.push(A.colidx);
-        colidx.push(shifted);
+        colidx.extend(&A.colidx);
+        colidx.extend(shifted);
 
         let mut data = Vec::with_capacity(nnz);
-        data.push(A.data);
-        data.push(B.data);
+        data.extend(&A.data);
+        data.extend(&B.data);
 
         Coo::new(rows, cols, rowidx, colidx, data)
     }
@@ -457,7 +466,7 @@ impl<I: PrimInt, T: Scalar> Coo<I, T> {
     ///       | J21 | J22 |
     ///        -----------
     /// An error is returned if the matrix dimensions do not match correctly.
-    fn compose(
+    pub fn compose(
         J11: &Coo<I, T>,
         J12: &Coo<I, T>,
         J21: &Coo<I, T>,

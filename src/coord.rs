@@ -1,5 +1,4 @@
-use crate::Scalar;
-use num_traits::PrimInt;
+use crate::traits::{Integer, Scalar};
 
 /// Compute B = A for COO matrix A, CSR matrix B
 ///
@@ -26,9 +25,9 @@ use num_traits::PrimInt;
 ///
 ///   Complexity: Linear.  Specifically O(nnz(A) + max(n_row,n_col))
 ///
-pub fn coo_tocsr<I: PrimInt, T: Scalar>(
+pub fn coo_tocsr<I: Integer, T: Scalar>(
     n_row: I,
-    n_col: I,
+    _n_col: I,
     nnz: I,
     Ai: &[I],
     Aj: &[I],
@@ -41,32 +40,33 @@ pub fn coo_tocsr<I: PrimInt, T: Scalar>(
     // fill(Bp, Bp + n_row, 0);
     Bp.fill(I::zero());
 
-    for n in 0..nnz {
-        Bp[Ai[n]] += 1;
+    for n in 0..nnz.to_usize().unwrap() {
+        let i = Ai[n].to_usize().unwrap();
+        Bp[i] += I::one();
     }
 
     //cumsum the nnz per row to get Bp[]
-    let mut cumsum = 0;
-    for i in 0..n_row {
+    let mut cumsum = I::zero();
+    for i in 0..n_row.to_usize().unwrap() {
         let temp: I = Bp[i];
         Bp[i] = cumsum;
-        cumsum += temp;
+        cumsum = cumsum + temp;
     }
-    Bp[n_row] = nnz;
+    Bp[n_row.to_usize().unwrap()] = nnz;
 
     //write Aj,Ax into Bj,Bx
-    for n in 0..nnz {
-        let row: I = Ai[n];
-        let dest: I = Bp[row];
+    for n in 0..nnz.to_usize().unwrap() {
+        let row = Ai[n].to_usize().unwrap();
+        let dest = Bp[row].to_usize().unwrap();
 
         Bj[dest] = Aj[n];
         Bx[dest] = Ax[n];
 
-        Bp[row] += 1;
+        Bp[row] += I::one();
     }
 
-    let mut last = 0;
-    for i in 0..=n_row {
+    let mut last = I::zero();
+    for i in 0..=n_row.to_usize().unwrap() {
         let temp: I = Bp[i];
         Bp[i] = last;
         last = temp;
@@ -85,7 +85,7 @@ pub fn coo_tocsr<I: PrimInt, T: Scalar>(
 ///   I  Aj[nnz(A)]      - column indices
 ///   T  Ax[nnz(A)]      - nonzeros
 ///   T  Bx[n_row*n_col] - dense matrix
-pub fn coo_todense<I: PrimInt, T: Scalar>(
+pub fn coo_todense<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
     nnz: usize, /*npy_int64*/
@@ -97,11 +97,13 @@ pub fn coo_todense<I: PrimInt, T: Scalar>(
 ) {
     if !fortran {
         for n in 0..nnz {
-            Bx[ /*(npy_intp)*/n_col * Ai[n] + Aj[n] ] += Ax[n];
+            let i = /*(npy_intp)*/(n_col * Ai[n] + Aj[n]).to_usize().unwrap();
+            Bx[i] += Ax[n];
         }
     } else {
         for n in 0..nnz {
-            Bx[ /*(npy_intp)*/n_row * Aj[n] + Ai[n] ] += Ax[n];
+            let i = /*(npy_intp)*/(n_row * Aj[n] + Ai[n]).to_usize().unwrap();
+            Bx[i] += Ax[n];
         }
     }
 }
@@ -123,7 +125,7 @@ pub fn coo_todense<I: PrimInt, T: Scalar>(
 ///   Output array Yx must be preallocated
 ///
 ///   Complexity: Linear.  Specifically O(nnz(A))
-pub fn coo_matvec<I: PrimInt, T: Scalar>(
+pub fn coo_matvec<I: Integer, T: Scalar>(
     nnz: usize, /*npy_int64*/
     Ai: &[I],
     Aj: &[I],
@@ -132,6 +134,8 @@ pub fn coo_matvec<I: PrimInt, T: Scalar>(
     Yx: &mut [T],
 ) {
     for n in 0..nnz {
-        Yx[Ai[n]] += Ax[n] * Xx[Aj[n]];
+        let i = Ai[n].to_usize().unwrap();
+        let j = Aj[n].to_usize().unwrap();
+        Yx[i] += Ax[n] * Xx[j];
     }
 }

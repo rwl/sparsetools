@@ -1,16 +1,15 @@
 use crate::coo::Coo;
 use crate::csc::CSC;
-use crate::scalar::Scalar;
-use crate::{
+use crate::row::{
     csr_diagonal, csr_has_canonical_format, csr_has_sorted_indices, csr_matmat, csr_matmat_maxnnz,
     csr_matvec, csr_select, csr_sort_indices, csr_sum_duplicates, csr_tocsc, csr_todense,
-    expandptr, get_csr_submatrix,
+    expandptr,
 };
-use num_traits::PrimInt;
+use crate::traits::{Integer, Scalar};
 use std::cmp::min;
 
 /// A sparse matrix with scalar values stored in Compressed Sparse Row (CSR) format.
-pub struct CSR<I: PrimInt, T: Scalar> {
+pub struct CSR<I: Integer, T: Scalar> {
     pub rows: I,
     pub cols: I,
     /// Row pointers (size rows+1).
@@ -21,7 +20,7 @@ pub struct CSR<I: PrimInt, T: Scalar> {
     pub data: Vec<T>,
 }
 
-impl<I: PrimInt, T: Scalar> CSR<I, T> {
+impl<I: Integer, T: Scalar> CSR<I, T> {
     /// Creates a new CSR matrix. Inputs are not copied. An error
     /// is returned if the slice arguments do not have the correct length.
     pub fn new(
@@ -31,10 +30,10 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
         colidx: Vec<I>,
         data: Vec<T>,
     ) -> Result<Self, String> {
-        if rowptr.len() != rows + 1 {
+        if rowptr.len() != rows.to_usize().unwrap() + 1 {
             return Err("rowptr has invalid length".to_string());
         }
-        let nnz = rowptr[rowptr.len() - 1];
+        let nnz = rowptr[rowptr.len() - 1].to_usize().unwrap();
         if colidx.len() < nnz {
             return Err("colidx has fewer than nnz elements".to_string());
         }
@@ -56,15 +55,15 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
         let n = data.len();
         let mut rowptr = vec![I::zero(); n + 1];
         for i in 0..n + 1 {
-            rowptr[i] = i;
+            rowptr[i] = I::from(i).unwrap();
         }
         let mut colidx = vec![I::zero(); n];
         for i in 0..n {
-            colidx[i] = i;
+            colidx[i] = I::from(i).unwrap();
         }
         CSR {
-            rows: n,
-            cols: n,
+            rows: I::from(n).unwrap(),
+            cols: I::from(n).unwrap(),
             rowptr,
             colidx,
             data,
@@ -99,22 +98,30 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
 
     /// Returns true if the matrix has sorted indexes and no duplicates.
     pub fn has_canonical_format(&self) -> bool {
-        csr_has_canonical_format(self.rowptr.len() - 1, &self.rowptr, &self.colidx)
+        csr_has_canonical_format::<I>(
+            I::from(self.rowptr.len() - 1).unwrap(),
+            &self.rowptr,
+            &self.colidx,
+        )
     }
 
     /// HasSortedIndexes returns true if the indexes of the matrix are in
     /// sorted order.
     pub fn has_sorted_indexes(&self) -> bool {
-        csr_has_sorted_indices(self.rowptr.len() - 1, &self.rowptr, &self.colidx)
+        csr_has_sorted_indices::<I>(
+            I::from(self.rowptr.len() - 1).unwrap(),
+            &self.rowptr,
+            &self.colidx,
+        )
     }
 
     /// SortIndexes sorts the indexes of this matrix in place.
-    pub fn sort_indexes(&self) {
-        csr_sort_indices(
-            self.rowptr.len() - 1,
+    pub fn sort_indexes(&mut self) {
+        csr_sort_indices::<I, T>(
+            I::from(self.rowptr.len() - 1).unwrap(),
             &self.rowptr,
-            &self.colidx,
-            &self.data,
+            &mut self.colidx,
+            &mut self.data,
         )
     }
 
@@ -138,10 +145,10 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
 
     /// Prune removes empty space after all non-zero elements.
     pub fn prune(&mut self) -> Result<(), String> {
-        if self.rowptr.len() != self.rows + 1 {
+        if self.rowptr.len() != self.rows.to_usize().unwrap() + 1 {
             return Err("index pointer has invalid length".to_string());
         }
-        let nnz = self.nnz();
+        let nnz = self.nnz().to_usize().unwrap();
         if self.colidx.len() < nnz {
             return Err("indexes array has fewer than nnz elements".to_string());
         }
@@ -159,11 +166,11 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
 
     /// Performs matrix-vector multiplication. The length of x must be equal
     /// to the number of columns of the receiver.
-    pub fn mat_vec(&self, x: &[f64]) -> Result<Vec<f64>, String> {
-        if x.len() != self.cols {
+    pub fn mat_vec(&self, x: &[T]) -> Result<Vec<T>, String> {
+        if x.len() != self.cols.to_usize().unwrap() {
             return Err(format!("len(x) ({}) != mat.cols ({})", x.len(), self.cols));
         }
-        let mut result = vec![0.0; self.rows];
+        let mut result = vec![T::zero(); self.rows.to_usize().unwrap()];
         csr_matvec(
             self.rows,
             self.cols,
@@ -188,7 +195,7 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
         let rows = self.rows;
         let cols = x.cols;
 
-        let mut rowptr = vec![0; rows + 1];
+        let mut rowptr = vec![I::zero(); rows.to_usize().unwrap() + 1];
 
         let nnz = csr_matmat_maxnnz(rows, cols, &self.rowptr, &self.colidx, &x.rowptr, &x.colidx); //, &rowptr);
 
@@ -216,39 +223,47 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
     /// of the receiver.
     pub fn select(&self, rowidx: Option<&[I]>, colidx: Option<&[I]>) -> Result<CSR<I, T>, String> {
         if !self.has_canonical_format() {
-            self.sum_duplicates();
+            // self.sum_duplicates();
+            return Err("must have canonical form, sum_duplicates".to_string());
         }
 
+        let mut rowidx_full = Vec::new();
         let rowidx = match rowidx {
             None => {
-                let mut rowidx = vec![I::zero(); self.rows];
-                for i in 0..rowidx.len() {
-                    rowidx[i] = i;
+                rowidx_full.resize(self.rows.to_usize().unwrap(), I::zero());
+                for i in 0..rowidx_full.len() {
+                    rowidx_full[i] = I::from(i).unwrap();
+                }
+                rowidx_full.as_slice()
+            }
+            Some(rowidx) => {
+                for &ri in rowidx {
+                    if ri < I::zero() || ri >= self.rows {
+                        return Err(format!("out of range: {}", ri));
+                    }
                 }
                 rowidx
             }
-            Some(rowidx) => rowidx,
-        };
-        let colidx = match colidx {
-            None => {
-                let mut colidx = vec![I::zero(); self.cols];
-                for i in 0..colidx.len() {
-                    colidx[i] = i;
-                }
-            }
-            Some(colidx) => colidx,
         };
 
-        for ri in rowidx {
-            if ri < 0 || ri >= self.rows {
-                return Err(format!("out of range: {}", ri));
+        let mut colidx_full = Vec::new();
+        let colidx = match colidx {
+            None => {
+                colidx_full.resize(self.cols.to_usize().unwrap(), I::zero());
+                for i in 0..colidx_full.len() {
+                    colidx_full[i] = I::from(i).unwrap();
+                }
+                colidx_full.as_slice()
             }
-        }
-        for ci in colidx {
-            if ci < 0 || ci >= self.cols {
-                return Err(format!("out of range: {}", ci));
+            Some(colidx) => {
+                for &ci in colidx {
+                    if ci < I::zero() || ci >= self.cols {
+                        return Err(format!("out of range: {}", ci));
+                    }
+                }
+                colidx
             }
-        }
+        };
 
         let mut Bp: Vec<I> = vec![];
         let mut Bj: Vec<I> = vec![];
@@ -257,9 +272,9 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
         csr_select(
             self.rows,
             self.cols,
-            self.rowptr,
-            self.colidx,
-            self.data,
+            &self.rowptr,
+            &self.colidx,
+            &self.data,
             &rowidx,
             &colidx,
             &mut Bp,
@@ -267,7 +282,13 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
             &mut Bx,
         );
 
-        CSR::new(rowidx.len(), colidx.len(), Bp, Bj, Bx)
+        CSR::new(
+            I::from(rowidx.len()).unwrap(),
+            I::from(colidx.len()).unwrap(),
+            Bp,
+            Bj,
+            Bx,
+        )
     }
 
     /// Converts the matrix into Coordinate (Coo) format.
@@ -295,9 +316,9 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
 
     /// Converts the matrix to Compressed Sparse Column (CSC) format.
     pub fn to_csc(&self) -> CSC<I, T> {
-        let mut colptr = vec![I::zero(); self.cols + 1];
-        let mut rowidx = vec![T::zero(); self.nnz()];
-        let mut data = vec![T::zero(); self.nnz()];
+        let mut colptr = vec![I::zero(); self.cols.to_usize().unwrap() + 1];
+        let mut rowidx = vec![I::zero(); self.nnz().to_usize().unwrap()];
+        let mut data = vec![T::zero(); self.nnz().to_usize().unwrap()];
 
         csr_tocsc(
             self.rows,
@@ -321,7 +342,10 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
 
     /// Converts the matrix into a dense 2D slice.
     pub fn to_dense(&self) -> Vec<Vec<T>> {
-        let mut dense = vec![vec![T::zero(); self.cols], self.rows];
+        let rows = self.rows.to_usize().unwrap();
+        let cols = self.cols.to_usize().unwrap();
+        // let mut dense = vec![&mut vec![T::zero(); cols]; rows];
+        let mut dense = vec![vec![T::zero(); cols]; rows];
         // for r := range dense {
         // 	dense[r] = make([]float64, self.cols)
         // }
@@ -338,7 +362,8 @@ impl<I: PrimInt, T: Scalar> CSR<I, T> {
 
     /// Returns a vector of the elements on the main diagonal.
     pub fn diagonal(&self) -> Vec<T> {
-        let mut diag = vec![T::zero(); min(self.rows, self.cols)];
+        let size = min(self.rows, self.cols).to_usize().unwrap();
+        let mut diag = vec![T::zero(); size];
         csr_diagonal(
             0,
             self.rows,

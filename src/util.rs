@@ -1,7 +1,3 @@
-use crate::scalar::Scalar;
+use crate::traits::Scalar;
 
-// pub trait BinaryOp<T: Scalar> {
-//     fn binary_op(a: T, b: T) -> T;
-// }
-
-pub type Binop<T: Scalar> = fn(T, T) -> T;
+pub type Binop<T: Scalar, T2> = fn(T, T) -> T2;

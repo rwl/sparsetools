@@ -1,8 +1,6 @@
 use crate::dense::axpy;
-use crate::scalar::Scalar;
+use crate::traits::{Integer, Scalar};
 use crate::{csr_diagonal, csr_matmat, csr_matmat_maxnnz, csr_tocsc};
-use num_traits::{PrimInt, Signed};
-use std::ops::AddAssign;
 
 /// Compute Y += A*X for CSC matrix A and dense vectors X,Y
 ///
@@ -22,8 +20,8 @@ use std::ops::AddAssign;
 ///   Output array Yx must be preallocated
 ///
 ///   Complexity: Linear.  Specifically O(nnz(A) + n_col)
-pub fn csc_matvec<I: PrimInt, T: Scalar + AddAssign>(
-    n_row: I,
+pub fn csc_matvec<I: Integer, T: Scalar>(
+    _n_row: I,
     n_col: I,
     Ap: &[I],
     Ai: &[I],
@@ -59,8 +57,8 @@ pub fn csc_matvec<I: PrimInt, T: Scalar + AddAssign>(
 ///
 /// Note:
 ///   Output array Yx must be preallocated
-pub fn csc_matvecs<I: PrimInt, T: Scalar>(
-    n_row: I,
+pub fn csc_matvecs<I: Integer, T: Scalar>(
+    _n_row: I,
     n_col: I,
     n_vecs: I,
     Ap: &[I],
@@ -88,7 +86,7 @@ pub fn csc_matvecs<I: PrimInt, T: Scalar>(
 
 // Derived methods //
 
-pub fn csc_diagonal<I: PrimInt + Signed, T: Scalar>(
+pub fn csc_diagonal<I: Integer, T: Scalar>(
     k: isize,
     n_row: I,
     n_col: I,
@@ -100,7 +98,7 @@ pub fn csc_diagonal<I: PrimInt + Signed, T: Scalar>(
     csr_diagonal(-k, n_col, n_row, Ap, Aj, Ax, Yx);
 }
 
-pub fn csc_tocsr<I: PrimInt, T: Scalar>(
+pub fn csc_tocsr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
     Ap: &[I],
@@ -113,7 +111,7 @@ pub fn csc_tocsr<I: PrimInt, T: Scalar>(
     csr_tocsc(n_col, n_row, Ap, Ai, Ax, Bp, Bj, Bx);
 }
 
-pub fn csc_matmat_maxnnz<I: PrimInt>(
+pub fn csc_matmat_maxnnz<I: Integer>(
     n_row: I,
     n_col: I,
     Ap: &[I],
@@ -125,7 +123,7 @@ pub fn csc_matmat_maxnnz<I: PrimInt>(
     return csr_matmat_maxnnz(n_col, n_row, Bp, Bi, Ap, Ai);
 }
 
-pub fn csc_matmat<I: PrimInt, T: Scalar>(
+pub fn csc_matmat<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
     Ap: &[I],
