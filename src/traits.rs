@@ -1,7 +1,48 @@
-use num_complex::Complex;
 use std::{fmt, ops};
 
 pub trait Integer: num_traits::PrimInt + ops::AddAssign + fmt::Display {}
+
+impl Integer for usize {}
+impl Integer for isize {}
+
+pub trait Float: Scalar {}
+
+impl Float for f64 {}
+impl Float for f32 {}
+
+pub trait Complex<F: Float>: Scalar {
+    fn conj(&self) -> Self;
+    fn real(&self) -> F;
+    fn imag(&self) -> F;
+}
+
+impl Complex<f64> for num_complex::Complex<f64> {
+    fn conj(&self) -> Self {
+        self.conj()
+    }
+
+    fn real(&self) -> f64 {
+        self.re
+    }
+
+    fn imag(&self) -> f64 {
+        self.im
+    }
+}
+
+impl Complex<f32> for num_complex::Complex<f32> {
+    fn conj(&self) -> Self {
+        self.conj()
+    }
+
+    fn real(&self) -> f32 {
+        self.re
+    }
+
+    fn imag(&self) -> f32 {
+        self.im
+    }
+}
 
 pub trait Scalar<Output = Self>:
     PartialEq
@@ -19,32 +60,13 @@ pub trait Scalar<Output = Self>:
     + fmt::Display
     + Nonzero
 {
-    fn abs(self) -> f64;
 }
 
-impl Scalar for f64 {
-    fn abs(self) -> f64 {
-        self.abs()
-    }
-}
+impl Scalar for f64 {}
+impl Scalar for f32 {}
 
-impl Scalar for f32 {
-    fn abs(self) -> f64 {
-        self.abs() as f64
-    }
-}
-
-impl Scalar for Complex<f64> {
-    fn abs(self) -> f64 {
-        self.norm()
-    }
-}
-
-impl Scalar for Complex<f32> {
-    fn abs(self) -> f64 {
-        self.norm() as f64
-    }
-}
+impl Scalar for num_complex::Complex<f64> {}
+impl Scalar for num_complex::Complex<f32> {}
 
 pub trait Nonzero {
     fn nonzero(&self) -> bool;
@@ -62,13 +84,13 @@ impl Nonzero for f32 {
     }
 }
 
-impl Nonzero for Complex<f64> {
+impl Nonzero for num_complex::Complex<f64> {
     fn nonzero(&self) -> bool {
         self.re != 0.0 || self.im != 0.0
     }
 }
 
-impl Nonzero for Complex<f32> {
+impl Nonzero for num_complex::Complex<f32> {
     fn nonzero(&self) -> bool {
         self.re != 0.0 || self.im != 0.0
     }

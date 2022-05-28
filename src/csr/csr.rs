@@ -143,8 +143,8 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         self.prune() // nnz may have changed
     }
 
-    /// Prune removes empty space after all non-zero elements.
-    pub fn prune(&mut self) -> Result<(), String> {
+    // Prune removes empty space after all non-zero elements.
+    fn prune(&mut self) -> Result<(), String> {
         if self.rowptr.len() != self.rows.to_usize().unwrap() + 1 {
             return Err("index pointer has invalid length".to_string());
         }

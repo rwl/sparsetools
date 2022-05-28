@@ -5,12 +5,15 @@ mod coord;
 mod dense;
 mod diag;
 mod row;
+#[cfg(test)]
+mod test;
 mod traits;
 mod util;
 
 pub mod coo;
 pub mod csc;
 pub mod csr;
+pub mod dok;
 
 pub use col::*;
 pub use coord::*;
