@@ -29,46 +29,46 @@ pub fn coo_tocsr<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
     nnz: I,
-    Ai: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &mut [I],
-    Bj: &mut [I],
-    Bx: &mut [T],
+    a_i: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &mut [I],
+    b_j: &mut [I],
+    b_x: &mut [T],
 ) {
     //compute number of non-zero entries per row of A
     // fill(Bp, Bp + n_row, 0);
-    Bp.fill(I::zero());
+    b_p.fill(I::zero());
 
     for n in 0..nnz.to_usize().unwrap() {
-        let i = Ai[n].to_usize().unwrap();
-        Bp[i] += I::one();
+        let i = a_i[n].to_usize().unwrap();
+        b_p[i] += I::one();
     }
 
     //cumsum the nnz per row to get Bp[]
     let mut cumsum = I::zero();
     for i in 0..n_row.to_usize().unwrap() {
-        let temp: I = Bp[i];
-        Bp[i] = cumsum;
+        let temp: I = b_p[i];
+        b_p[i] = cumsum;
         cumsum = cumsum + temp;
     }
-    Bp[n_row.to_usize().unwrap()] = nnz;
+    b_p[n_row.to_usize().unwrap()] = nnz;
 
     //write Aj,Ax into Bj,Bx
     for n in 0..nnz.to_usize().unwrap() {
-        let row = Ai[n].to_usize().unwrap();
-        let dest = Bp[row].to_usize().unwrap();
+        let row = a_i[n].to_usize().unwrap();
+        let dest = b_p[row].to_usize().unwrap();
 
-        Bj[dest] = Aj[n];
-        Bx[dest] = Ax[n];
+        b_j[dest] = a_j[n];
+        b_x[dest] = a_x[n];
 
-        Bp[row] += I::one();
+        b_p[row] += I::one();
     }
 
     let mut last = I::zero();
     for i in 0..=n_row.to_usize().unwrap() {
-        let temp: I = Bp[i];
-        Bp[i] = last;
+        let temp: I = b_p[i];
+        b_p[i] = last;
         last = temp;
     }
 
@@ -89,21 +89,21 @@ pub fn coo_todense<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
     nnz: usize, /*npy_int64*/
-    Ai: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bx: &mut [T],
+    a_i: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_x: &mut [T],
     fortran: bool,
 ) {
     if !fortran {
         for n in 0..nnz {
-            let i = /*(npy_intp)*/(n_col * Ai[n] + Aj[n]).to_usize().unwrap();
-            Bx[i] += Ax[n];
+            let i = /*(npy_intp)*/(n_col * a_i[n] + a_j[n]).to_usize().unwrap();
+            b_x[i] += a_x[n];
         }
     } else {
         for n in 0..nnz {
-            let i = /*(npy_intp)*/(n_row * Aj[n] + Ai[n]).to_usize().unwrap();
-            Bx[i] += Ax[n];
+            let i = /*(npy_intp)*/(n_row * a_j[n] + a_i[n]).to_usize().unwrap();
+            b_x[i] += a_x[n];
         }
     }
 }
@@ -127,15 +127,15 @@ pub fn coo_todense<I: Integer, T: Scalar>(
 ///   Complexity: Linear.  Specifically O(nnz(A))
 pub fn coo_matvec<I: Integer, T: Scalar>(
     nnz: usize, /*npy_int64*/
-    Ai: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Xx: &[T],
-    Yx: &mut [T],
+    a_i: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    x_x: &[T],
+    y_x: &mut [T],
 ) {
     for n in 0..nnz {
-        let i = Ai[n].to_usize().unwrap();
-        let j = Aj[n].to_usize().unwrap();
-        Yx[i] += Ax[n] * Xx[j];
+        let i = a_i[n].to_usize().unwrap();
+        let j = a_j[n].to_usize().unwrap();
+        y_x[i] += a_x[n] * x_x[j];
     }
 }

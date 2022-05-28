@@ -51,7 +51,7 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
 
     /// Creates a new CSR matrix with the given values on the main
     /// diagonal. The input is not copied.
-    pub fn from_diag(data: Vec<T>) -> Self {
+    pub fn with_diag(data: Vec<T>) -> Self {
         let n = data.len();
         let mut rowptr = vec![I::zero(); n + 1];
         for i in 0..n + 1 {
@@ -265,9 +265,9 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
             }
         };
 
-        let mut Bp: Vec<I> = vec![];
-        let mut Bj: Vec<I> = vec![];
-        let mut Bx: Vec<T> = vec![];
+        let mut b_p: Vec<I> = vec![];
+        let mut b_j: Vec<I> = vec![];
+        let mut b_x: Vec<T> = vec![];
 
         csr_select(
             self.rows,
@@ -277,17 +277,17 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
             &self.data,
             &rowidx,
             &colidx,
-            &mut Bp,
-            &mut Bj,
-            &mut Bx,
+            &mut b_p,
+            &mut b_j,
+            &mut b_x,
         );
 
         CSR::new(
             I::from(rowidx.len()).unwrap(),
             I::from(colidx.len()).unwrap(),
-            Bp,
-            Bj,
-            Bx,
+            b_p,
+            b_j,
+            b_x,
         )
     }
 

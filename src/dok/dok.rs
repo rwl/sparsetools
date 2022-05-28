@@ -35,7 +35,8 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
         for (i, &row) in d.iter().enumerate() {
             for (j, &v) in row.iter().enumerate() {
                 if v != T::zero() {
-                    mat.set(I::from(i).unwrap(), I::from(j).unwrap(), v);
+                    mat.set(I::from(i).unwrap(), I::from(j).unwrap(), v)
+                        .unwrap();
                 }
             }
         }

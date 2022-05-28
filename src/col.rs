@@ -23,19 +23,19 @@ use crate::{csr_diagonal, csr_matmat, csr_matmat_maxnnz, csr_tocsc};
 pub fn csc_matvec<I: Integer, T: Scalar>(
     _n_row: I,
     n_col: I,
-    Ap: &[I],
-    Ai: &[I],
-    Ax: &[T],
-    Xx: &[T],
-    Yx: &mut [T],
+    a_p: &[I],
+    a_i: &[I],
+    a_x: &[T],
+    x_x: &[T],
+    y_x: &mut [T],
 ) {
     for j in 0..n_col.to_usize().unwrap() {
-        let col_start = Ap[j].to_usize().unwrap();
-        let col_end = Ap[j + 1].to_usize().unwrap();
+        let col_start = a_p[j].to_usize().unwrap();
+        let col_end = a_p[j + 1].to_usize().unwrap();
 
         for ii in col_start..col_end {
-            let i = Ai[ii].to_usize().unwrap();
-            Yx[i] += Ax[ii] * Xx[j];
+            let i = a_i[ii].to_usize().unwrap();
+            y_x[i] += a_x[ii] * x_x[j];
         }
     }
 }
@@ -61,24 +61,24 @@ pub fn csc_matvecs<I: Integer, T: Scalar>(
     _n_row: I,
     n_col: I,
     n_vecs: I,
-    Ap: &[I],
-    Ai: &[I],
-    Ax: &[T],
-    Xx: &[T],
-    Yx: &mut [T],
+    a_p: &[I],
+    a_i: &[I],
+    a_x: &[T],
+    x_x: &[T],
+    y_x: &mut [T],
 ) {
     for j in 0..n_col.to_usize().unwrap() {
-        let start = Ap[j].to_usize().unwrap();
-        let end = Ap[j + 1].to_usize().unwrap();
+        let start = a_p[j].to_usize().unwrap();
+        let end = a_p[j + 1].to_usize().unwrap();
         for ii in start..end {
-            let i = Ai[ii].to_usize().unwrap();
+            let i = a_i[ii].to_usize().unwrap();
             axpy(
                 n_vecs,
-                Ax[ii],
+                a_x[ii],
                 // Xx + /*(npy_intp)*/n_vecs * j,
-                &Xx[(n_vecs.to_usize().unwrap() * j)..],
+                &x_x[(n_vecs.to_usize().unwrap() * j)..],
                 // Yx + /*(npy_intp)*/n_vecs * i,
-                &mut Yx[(n_vecs.to_usize().unwrap() * i)..],
+                &mut y_x[(n_vecs.to_usize().unwrap() * i)..],
             );
         }
     }
@@ -90,51 +90,51 @@ pub fn csc_diagonal<I: Integer, T: Scalar>(
     k: isize,
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Yx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    y_x: &mut [T],
 ) {
-    csr_diagonal(-k, n_col, n_row, Ap, Aj, Ax, Yx);
+    csr_diagonal(-k, n_col, n_row, a_p, a_j, a_x, y_x);
 }
 
 pub fn csc_tocsr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Ai: &[I],
-    Ax: &[T],
-    Bp: &mut [I],
-    Bj: &mut [I],
-    Bx: &mut [T],
+    a_p: &[I],
+    a_i: &[I],
+    a_x: &[T],
+    b_p: &mut [I],
+    b_j: &mut [I],
+    b_x: &mut [T],
 ) {
-    csr_tocsc(n_col, n_row, Ap, Ai, Ax, Bp, Bj, Bx);
+    csr_tocsc(n_col, n_row, a_p, a_i, a_x, b_p, b_j, b_x);
 }
 
 pub fn csc_matmat_maxnnz<I: Integer>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Ai: &[I],
-    Bp: &[I],
-    Bi: &[I],
+    a_p: &[I],
+    a_i: &[I],
+    b_p: &[I],
+    b_i: &[I],
 ) -> usize /*npy_intp*/
 {
-    return csr_matmat_maxnnz(n_col, n_row, Bp, Bi, Ap, Ai);
+    return csr_matmat_maxnnz(n_col, n_row, b_p, b_i, a_p, a_i);
 }
 
 pub fn csc_matmat<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Ai: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bi: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Ci: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_i: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_i: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_i: &mut [I],
+    c_x: &mut [T],
 ) {
-    csr_matmat(n_col, n_row, Bp, Bi, Bx, Ap, Ai, Ax, Cp, Ci, Cx);
+    csr_matmat(n_col, n_row, b_p, b_i, b_x, a_p, a_i, a_x, c_p, c_i, c_x);
 }

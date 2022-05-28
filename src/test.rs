@@ -5,8 +5,8 @@ use num_complex::Complex;
 // [ 0, 32, 33,  0]
 // [41,  0, 43, 44]
 
-pub(crate) const n: usize = 4;
-pub(crate) const nnz: usize = 8;
+pub(crate) const N: usize = 4;
+pub(crate) const NNZ: usize = 8;
 
 pub(crate) fn diagonal() -> Vec<f64> {
     vec![11.0, 22.0, 33.0, 44.0]
@@ -72,4 +72,30 @@ pub(crate) fn c_csc_data() -> (Vec<usize>, Vec<usize>, Vec<Complex<f64>>) {
 
 fn to_complex(floats: &[f64]) -> Vec<Complex<f64>> {
     floats.iter().map(|&f| Complex::new(f, 0.0)).collect()
+}
+
+pub(crate) fn assert_slice(actual: &[f64], expected: &[f64]) -> Result<(), String> {
+    if actual.len() != expected.len() {
+        return Err(format!(
+            "slice length, expected = {} actual = {}, diff = {}",
+            expected.len(),
+            actual.len(),
+            expected.len() - actual.len()
+        )
+        .to_string());
+    }
+    for (i, (act, exp)) in actual.iter().zip(expected).enumerate() {
+        if act != exp {
+            return Err(format!(
+                "element {}/{}, expected = {} actual = {} diff = {}",
+                i,
+                actual.len(),
+                exp,
+                act,
+                exp - act
+            )
+            .to_string());
+        }
+    }
+    Ok(())
 }

@@ -1,3 +1,1 @@
-use crate::traits::Scalar;
-
-pub type Binop<T: Scalar, T2> = fn(T, T) -> T2;
+pub type Binop<T, T2> = fn(T, T) -> T2;

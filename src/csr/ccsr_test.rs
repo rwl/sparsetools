@@ -6,17 +6,17 @@ use crate::test;
 fn test_new() -> Result<(), String> {
     let (rowptr, colidx, data) = test::c_csr_data();
 
-    let csr = CSR::new(test::n, test::n, rowptr, colidx, data)?;
+    let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
 
-    if csr.rows != test::n {
-        return Err(format!("rows, expected {} actual {}", test::n, csr.rows).to_string());
+    if csr.rows != test::N {
+        return Err(format!("rows, expected {} actual {}", test::N, csr.rows).to_string());
     }
-    if csr.cols != test::n {
-        return Err(format!("cols, expected {} actual {}", test::n, csr.cols).to_string());
+    if csr.cols != test::N {
+        return Err(format!("cols, expected {} actual {}", test::N, csr.cols).to_string());
     }
 
-    if csr.nnz() != test::nnz {
-        return Err(format!("nnz, expected {} actual {}", test::nnz, csr.nnz()).to_string());
+    if csr.nnz() != test::NNZ {
+        return Err(format!("nnz, expected {} actual {}", test::NNZ, csr.nnz()).to_string());
     }
 
     let diag = test::c_diagonal();

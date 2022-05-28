@@ -162,7 +162,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             &mut self.data,
         );
 
-        self.prune(); // nnz may have changed
+        self.prune().unwrap(); // nnz may have changed
     }
 
     /// Removes empty space after all non-zero elements.
@@ -286,9 +286,9 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             }
         };
 
-        let mut Bp = Vec::<I>::new();
-        let mut Bj = Vec::<I>::new();
-        let mut Bx = Vec::<T>::new();
+        let mut b_p = Vec::<I>::new();
+        let mut b_j = Vec::<I>::new();
+        let mut b_x = Vec::<T>::new();
 
         csr_select(
             self.cols,
@@ -298,17 +298,17 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             &self.data,
             colidx,
             rowidx,
-            &mut Bp,
-            &mut Bj,
-            &mut Bx,
+            &mut b_p,
+            &mut b_j,
+            &mut b_x,
         );
 
         Ok(CSC {
             rows: I::from(rowidx.len()).unwrap(),
             cols: I::from(colidx.len()).unwrap(),
-            rowidx: Bj,
-            colptr: Bp,
-            data: Bx,
+            rowidx: b_j,
+            colptr: b_p,
+            data: b_x,
         })
     }
 
@@ -478,21 +478,21 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     ///        -----------
     /// An error is returned if the matrix dimensions do not match correctly.
     pub fn compose(
-        J11: &CSC<I, T>,
-        J12: &CSC<I, T>,
-        J21: &CSC<I, T>,
-        J22: &CSC<I, T>,
+        j11: &CSC<I, T>,
+        j12: &CSC<I, T>,
+        j21: &CSC<I, T>,
+        j22: &CSC<I, T>,
     ) -> Result<Self, String> {
-        let J11coo = J11.to_coo();
-        let J12coo = J12.to_coo();
-        let J21coo = J21.to_coo();
-        let J22coo = J22.to_coo();
+        let j11coo = j11.to_coo();
+        let j12coo = j12.to_coo();
+        let j21coo = j21.to_coo();
+        let j22coo = j22.to_coo();
 
-        let J1X = Coo::h_stack(&J11coo, &J12coo)?;
-        let J2X = Coo::h_stack(&J21coo, &J22coo)?;
+        let j1x = Coo::h_stack(&j11coo, &j12coo)?;
+        let j2x = Coo::h_stack(&j21coo, &j22coo)?;
 
-        let J = Coo::v_stack(&J1X, &J2X)?;
+        let j = Coo::v_stack(&j1x, &j2x)?;
 
-        Ok(J.to_csc())
+        Ok(j.to_csc())
     }
 }

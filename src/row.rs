@@ -27,32 +27,32 @@ pub fn csr_diagonal<I: Integer, T: Scalar>(
     k: isize,
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Yx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    y_x: &mut [T],
 ) {
     let first_row: usize = if k >= 0 { 0 } else { (-1 * k) as usize };
     let first_col: usize = if k >= 0 { k as usize } else { 0 };
-    let N: usize = min(
+    let n: usize = min(
         n_row.to_usize().unwrap() - first_row,
         n_col.to_usize().unwrap() - first_col,
     );
 
-    for i in 0..N {
+    for i in 0..n {
         let row: usize = first_row + i;
         let col: usize = first_col + i;
-        let row_begin: usize = Ap[row].to_usize().unwrap();
-        let row_end: usize = Ap[row + 1].to_usize().unwrap();
+        let row_begin: usize = a_p[row].to_usize().unwrap();
+        let row_end: usize = a_p[row + 1].to_usize().unwrap();
 
         let mut diag: T = T::zero();
         for j in row_begin..row_end {
-            if Aj[j].to_usize().unwrap() == col {
-                diag += Ax[j];
+            if a_j[j].to_usize().unwrap() == col {
+                diag += a_x[j];
             }
         }
 
-        Yx[i] = diag;
+        y_x[i] = diag;
     }
 }
 
@@ -70,12 +70,12 @@ pub fn csr_diagonal<I: Integer, T: Scalar>(
 ///
 /// Note:
 ///   Complexity: Linear
-pub fn expandptr<I: Integer>(n_row: I, Ap: &[I], Bi: &mut [I]) {
+pub fn expandptr<I: Integer>(n_row: I, a_p: &[I], b_i: &mut [I]) {
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         for jj in start..end {
-            Bi[jj] = I::from(i).unwrap();
+            b_i[jj] = I::from(i).unwrap();
         }
     }
 }
@@ -86,16 +86,16 @@ pub fn expandptr<I: Integer>(n_row: I, Ap: &[I], Bi: &mut [I]) {
 pub fn csr_scale_rows<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
-    Ap: &[I],
-    _Aj: &[I],
-    Ax: &mut [T],
-    Xx: &[T],
+    a_p: &[I],
+    _a_j: &[I],
+    a_x: &mut [T],
+    x_x: &[T],
 ) {
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         for jj in start..end {
-            Ax[jj] *= Xx[i];
+            a_x[jj] *= x_x[i];
         }
     }
 }
@@ -106,14 +106,14 @@ pub fn csr_scale_rows<I: Integer, T: Scalar>(
 pub fn csr_scale_columns<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &mut [T],
-    Xx: &[T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &mut [T],
+    x_x: &[T],
 ) {
-    let nnz: usize = Ap[n_row.to_usize().unwrap()].to_usize().unwrap();
+    let nnz: usize = a_p[n_row.to_usize().unwrap()].to_usize().unwrap();
     for i in 0..nnz {
-        Ax[i] *= Xx[Aj[i].to_usize().unwrap()];
+        a_x[i] *= x_x[a_j[i].to_usize().unwrap()];
     }
 }
 
@@ -243,18 +243,18 @@ pub fn csr_scale_columns<I: Integer, T: Scalar>(
 pub fn csr_todense<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    // Bx: &mut [T],
-    Bx: &mut Vec<Vec<T>>,
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    // b_x: &mut [T],
+    b_x: &mut Vec<Vec<T>>,
 ) {
     for i in 0..n_row.to_usize().unwrap() {
-        let row_start = Ap[i].to_usize().unwrap();
-        let row_end = Ap[i + 1].to_usize().unwrap();
+        let row_start = a_p[i].to_usize().unwrap();
+        let row_end = a_p[i + 1].to_usize().unwrap();
         for jj in row_start..row_end {
-            let j = Aj[jj].to_usize().unwrap();
-            Bx[i][j] += Ax[jj];
+            let j = a_j[jj].to_usize().unwrap();
+            b_x[i][j] += a_x[jj];
         }
     }
 }
@@ -265,12 +265,12 @@ pub fn csr_todense<I: Integer, T: Scalar>(
 ///   I  n_row           - number of rows in A
 ///   I  Ap[n_row+1]     - row pointer
 ///   I  Aj[nnz(A)]      - column indices
-pub fn csr_has_sorted_indices<I: Integer>(n_row: I, Ap: &[I], Aj: &[I]) -> bool {
+pub fn csr_has_sorted_indices<I: Integer>(n_row: I, a_p: &[I], a_j: &[I]) -> bool {
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = (Ap[i + 1] - I::one()).to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = (a_p[i + 1] - I::one()).to_usize().unwrap();
         for jj in start..end {
-            if Aj[jj] > Aj[jj + 1] {
+            if a_j[jj] > a_j[jj + 1] {
                 return false;
             }
         }
@@ -287,18 +287,18 @@ pub fn csr_has_sorted_indices<I: Integer>(n_row: I, Ap: &[I], Aj: &[I]) -> bool 
 ///   I  n_row           - number of rows in A
 ///   I  Ap[n_row+1]     - row pointer
 ///   I  Aj[nnz(A)]      - column indices
-pub fn csr_has_canonical_format<I: Integer>(n_row: I, Ap: &[I], Aj: &[I]) -> bool {
+pub fn csr_has_canonical_format<I: Integer>(n_row: I, a_p: &[I], a_j: &[I]) -> bool {
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         if start > end {
             return false;
         }
 
-        let start = (Ap[i] + I::one()).to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = (a_p[i] + I::one()).to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         for jj in start..end {
-            if !(Aj[jj - 1] < Aj[jj]) {
+            if !(a_j[jj - 1] < a_j[jj]) {
                 return false;
             }
         }
@@ -313,19 +313,19 @@ pub fn csr_has_canonical_format<I: Integer>(n_row: I, Ap: &[I], Aj: &[I]) -> boo
 ///   I  Ap[n_row+1]     - row pointer
 ///   I  Aj[nnz(A)]      - column indices
 ///   T  Ax[nnz(A)]      - nonzeros
-pub fn csr_sort_indices<I: Integer, T: Scalar>(n_row: I, Ap: &[I], Aj: &mut [I], Ax: &mut [T]) {
+pub fn csr_sort_indices<I: Integer, T: Scalar>(n_row: I, a_p: &[I], a_j: &mut [I], a_x: &mut [T]) {
     // std::vector< std::pair<I,T> > temp;
     let mut temp: Vec<(I, T)> = vec![];
 
     for i in 0..n_row.to_usize().unwrap() {
-        let row_start = Ap[i].to_usize().unwrap();
-        let row_end = Ap[i + 1].to_usize().unwrap();
+        let row_start = a_p[i].to_usize().unwrap();
+        let row_end = a_p[i + 1].to_usize().unwrap();
 
         temp.resize(row_end - row_start, (I::zero(), T::zero()));
         let mut n = 0;
         for jj in row_start..row_end {
-            temp[n].0 = Aj[jj];
-            temp[n].1 = Ax[jj];
+            temp[n].0 = a_j[jj];
+            temp[n].1 = a_x[jj];
             n += 1;
         }
 
@@ -333,8 +333,8 @@ pub fn csr_sort_indices<I: Integer, T: Scalar>(n_row: I, Ap: &[I], Aj: &mut [I],
 
         let mut n = 0;
         for jj in row_start..row_end {
-            Aj[jj] = temp[n].0;
-            Ax[jj] = temp[n].1;
+            a_j[jj] = temp[n].0;
+            a_x[jj] = temp[n].1;
             n += 1;
         }
     }
@@ -370,50 +370,50 @@ pub fn csr_sort_indices<I: Integer, T: Scalar>(n_row: I, Ap: &[I], Aj: &mut [I],
 pub fn csr_tocsc<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &mut [I],
-    Bi: &mut [I],
-    Bx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &mut [I],
+    b_i: &mut [I],
+    b_x: &mut [T],
 ) {
-    let nnz: I = Ap[n_row.to_usize().unwrap()];
+    let nnz: I = a_p[n_row.to_usize().unwrap()];
 
     //compute number of non-zero entries per column of A
     // Bp.fill(Bp + n_col, I::zero());
-    Bp.fill(I::zero());
+    b_p.fill(I::zero());
 
     for n in 0..nnz.to_usize().unwrap() {
-        Bp[Aj[n].to_usize().unwrap()] += I::one();
+        b_p[a_j[n].to_usize().unwrap()] += I::one();
     }
 
     //cumsum the nnz per column to get Bp[]
     let mut cumsum = I::zero();
     for col in 0..n_col.to_usize().unwrap() {
-        let temp: I = Bp[col];
-        Bp[col] = cumsum;
+        let temp: I = b_p[col];
+        b_p[col] = cumsum;
         cumsum += temp;
     }
-    Bp[n_col.to_usize().unwrap()] = nnz;
+    b_p[n_col.to_usize().unwrap()] = nnz;
 
     for row in 0..n_row.to_usize().unwrap() {
-        let start = Ap[row].to_usize().unwrap();
-        let end = Ap[row + 1].to_usize().unwrap();
+        let start = a_p[row].to_usize().unwrap();
+        let end = a_p[row + 1].to_usize().unwrap();
         for jj in start..end {
-            let col = Aj[jj].to_usize().unwrap();
-            let dest = Bp[col].to_usize().unwrap();
+            let col = a_j[jj].to_usize().unwrap();
+            let dest = b_p[col].to_usize().unwrap();
 
-            Bi[dest] = I::from(row).unwrap();
-            Bx[dest] = Ax[jj];
+            b_i[dest] = I::from(row).unwrap();
+            b_x[dest] = a_x[jj];
 
-            Bp[col] += I::one();
+            b_p[col] += I::one();
         }
     }
 
     let mut last = I::one();
     for col in 0..=n_col.to_usize().unwrap() {
-        let temp: I = Bp[col];
-        Bp[col] = last;
+        let temp: I = b_p[col];
+        b_p[col] = last;
         last = temp;
     }
 }
@@ -511,10 +511,10 @@ pub fn csr_tocsc<I: Integer, T: Scalar>(
 pub fn csr_matmat_maxnnz<I: Integer>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Bp: &[I],
-    Bj: &[I],
+    a_p: &[I],
+    a_j: &[I],
+    b_p: &[I],
+    b_j: &[I],
 ) -> usize /*npy_intp*/
 {
     // method that uses O(n) temp storage
@@ -523,17 +523,17 @@ pub fn csr_matmat_maxnnz<I: Integer>(
 
     let /*npy_intp*/ mut nnz = 0;
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         let /*npy_intp*/ mut row_nnz = 0;
 
         for jj in start..end {
-            let j = Aj[jj].to_usize().unwrap();
-            let b_start = Bp[j].to_usize().unwrap();
-            let b_end = Bp[j + 1].to_usize().unwrap();
+            let j = a_j[jj].to_usize().unwrap();
+            let b_start = b_p[j].to_usize().unwrap();
+            let b_end = b_p[j + 1].to_usize().unwrap();
 
             for kk in b_start..b_end {
-                let k = Bj[kk].to_usize().unwrap();
+                let k = b_j[kk].to_usize().unwrap();
                 if mask[k] != i as isize {
                     mask[k] = i as isize;
                     row_nnz += 1;
@@ -558,15 +558,15 @@ pub fn csr_matmat_maxnnz<I: Integer>(
 pub fn csr_matmat<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T],
 ) {
     // std::vector<I> next(n_col,-1);
     let mut next: Vec<isize> = vec![-1; n_col.to_usize().unwrap()];
@@ -575,24 +575,24 @@ pub fn csr_matmat<I: Integer, T: Scalar>(
 
     let mut nnz = I::zero();
 
-    Cp[0] = I::zero();
+    c_p[0] = I::zero();
 
     for i in 0..n_row.to_usize().unwrap() {
         let mut head: isize = -2;
         let mut length: I = I::zero();
 
-        let jj_start = Ap[i].to_usize().unwrap();
-        let jj_end = Ap[i + 1].to_usize().unwrap();
+        let jj_start = a_p[i].to_usize().unwrap();
+        let jj_end = a_p[i + 1].to_usize().unwrap();
         for jj in jj_start..jj_end {
-            let j = Aj[jj].to_usize().unwrap();
-            let v = Ax[jj];
+            let j = a_j[jj].to_usize().unwrap();
+            let v = a_x[jj];
 
-            let kk_start = Bp[j].to_usize().unwrap();
-            let kk_end = Bp[j + 1].to_usize().unwrap();
+            let kk_start = b_p[j].to_usize().unwrap();
+            let kk_end = b_p[j + 1].to_usize().unwrap();
             for kk in kk_start..kk_end {
-                let k = Bj[kk].to_usize().unwrap();
+                let k = b_j[kk].to_usize().unwrap();
 
-                sums[k] += v * Bx[kk];
+                sums[k] += v * b_x[kk];
 
                 if next[k] == -1 {
                     next[k] = head;
@@ -604,8 +604,8 @@ pub fn csr_matmat<I: Integer, T: Scalar>(
 
         for _jj in 0..length.to_usize().unwrap() {
             if sums[head as usize] != T::zero() {
-                Cj[nnz.to_usize().unwrap()] = I::from(head).unwrap();
-                Cx[nnz.to_usize().unwrap()] = sums[head as usize];
+                c_j[nnz.to_usize().unwrap()] = I::from(head).unwrap();
+                c_x[nnz.to_usize().unwrap()] = sums[head as usize];
                 nnz += I::one();
             }
 
@@ -616,7 +616,7 @@ pub fn csr_matmat<I: Integer, T: Scalar>(
             sums[temp] = T::zero();
         }
 
-        Cp[i + 1] = nnz;
+        c_p[i + 1] = nnz;
     }
 }
 
@@ -641,15 +641,15 @@ pub fn csr_matmat<I: Integer, T: Scalar>(
 pub fn csr_binop_csr_general<I: Integer, T: Scalar, T2: Nonzero>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T2],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T2],
     op: Binop<T, T2>,
 ) {
     // Method that works for duplicate and/or unsorted indices
@@ -657,24 +657,24 @@ pub fn csr_binop_csr_general<I: Integer, T: Scalar, T2: Nonzero>(
     // std::vector<I>  next(n_col,-1);
     let mut next: Vec<isize> = vec![-1; n_col.to_usize().unwrap()];
     // std::vector<T> A_row(n_col, 0);
-    let mut A_row: Vec<T> = vec![T::zero(); n_col.to_usize().unwrap()];
+    let mut a_row: Vec<T> = vec![T::zero(); n_col.to_usize().unwrap()];
     // std::vector<T> B_row(n_col, 0);
-    let mut B_row: Vec<T> = vec![T::zero(); n_col.to_usize().unwrap()];
+    let mut b_row: Vec<T> = vec![T::zero(); n_col.to_usize().unwrap()];
 
     let mut nnz: I = I::zero();
-    Cp[0] = I::zero();
+    c_p[0] = I::zero();
 
     for i in 0..n_row.to_usize().unwrap() {
         let mut head: isize = -2;
         let mut length: I = I::zero();
 
         //add a row of A to A_row
-        let i_start = Ap[i].to_usize().unwrap();
-        let i_end = Ap[i + 1].to_usize().unwrap();
+        let i_start = a_p[i].to_usize().unwrap();
+        let i_end = a_p[i + 1].to_usize().unwrap();
         for jj in i_start..i_end {
-            let j = Aj[jj].to_usize().unwrap();
+            let j = a_j[jj].to_usize().unwrap();
 
-            A_row[j] += Ax[jj];
+            a_row[j] += a_x[jj];
 
             if next[j] == -1 {
                 next[j] = head;
@@ -684,12 +684,12 @@ pub fn csr_binop_csr_general<I: Integer, T: Scalar, T2: Nonzero>(
         }
 
         //add a row of B to B_row
-        let i_start = Bp[i].to_usize().unwrap();
-        let i_end = Bp[i + 1].to_usize().unwrap();
+        let i_start = b_p[i].to_usize().unwrap();
+        let i_end = b_p[i + 1].to_usize().unwrap();
         for jj in i_start..i_end {
-            let j = Bj[jj].to_usize().unwrap();
+            let j = b_j[jj].to_usize().unwrap();
 
-            B_row[j] += Bx[jj];
+            b_row[j] += b_x[jj];
 
             if next[j] == -1 {
                 next[j] = head;
@@ -701,11 +701,11 @@ pub fn csr_binop_csr_general<I: Integer, T: Scalar, T2: Nonzero>(
         // scan through columns where A or B has
         // contributed a non-zero entry
         for _jj in 0..length.to_usize().unwrap() {
-            let result: T2 = op(A_row[head as usize], B_row[head as usize]);
+            let result: T2 = op(a_row[head as usize], b_row[head as usize]);
 
             if result.nonzero() {
-                Cj[nnz.to_usize().unwrap()] = I::from(head).unwrap();
-                Cx[nnz.to_usize().unwrap()] = result;
+                c_j[nnz.to_usize().unwrap()] = I::from(head).unwrap();
+                c_x[nnz.to_usize().unwrap()] = result;
                 nnz += I::one();
             }
 
@@ -713,11 +713,11 @@ pub fn csr_binop_csr_general<I: Integer, T: Scalar, T2: Nonzero>(
             head = next[head as usize];
 
             next[temp] = -1;
-            A_row[temp] = T::zero();
-            B_row[temp] = T::zero();
+            a_row[temp] = T::zero();
+            b_row[temp] = T::zero();
         }
 
-        Cp[i + 1] = nnz;
+        c_p[i + 1] = nnz;
     }
 }
 
@@ -737,83 +737,83 @@ pub fn csr_binop_csr_general<I: Integer, T: Scalar, T2: Nonzero>(
 pub fn csr_binop_csr_canonical<I: Integer, T: Scalar, T2: Nonzero>(
     n_row: I,
     _n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T2],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T2],
     op: Binop<T, T2>,
 ) {
     // Method that works for canonical CSR matrices
 
-    Cp[0] = I::zero();
+    c_p[0] = I::zero();
     let mut nnz: usize = 0;
 
     for i in 0..n_row.to_usize().unwrap() {
-        let mut A_pos = Ap[i].to_usize().unwrap();
-        let mut B_pos = Bp[i].to_usize().unwrap();
-        let A_end = Ap[i + 1].to_usize().unwrap();
-        let B_end = Bp[i + 1].to_usize().unwrap();
+        let mut a_pos = a_p[i].to_usize().unwrap();
+        let mut b_pos = b_p[i].to_usize().unwrap();
+        let a_end = a_p[i + 1].to_usize().unwrap();
+        let b_end = b_p[i + 1].to_usize().unwrap();
 
         //while not finished with either row
-        while A_pos < A_end && B_pos < B_end {
-            let A_j: I = Aj[A_pos];
-            let B_j: I = Bj[B_pos];
+        while a_pos < a_end && b_pos < b_end {
+            let aj: I = a_j[a_pos];
+            let bj: I = b_j[b_pos];
 
-            if A_j == B_j {
-                let result: T2 = op(Ax[A_pos], Bx[B_pos]);
+            if aj == bj {
+                let result: T2 = op(a_x[a_pos], b_x[b_pos]);
                 if result.nonzero() {
-                    Cj[nnz] = A_j;
-                    Cx[nnz] = result;
+                    c_j[nnz] = aj;
+                    c_x[nnz] = result;
                     nnz += 1;
                 }
-                A_pos += 1;
-                B_pos += 1;
-            } else if A_j < B_j {
-                let result: T2 = op(Ax[A_pos], T::zero());
+                a_pos += 1;
+                b_pos += 1;
+            } else if aj < bj {
+                let result: T2 = op(a_x[a_pos], T::zero());
                 if result.nonzero() {
-                    Cj[nnz] = A_j;
-                    Cx[nnz] = result;
+                    c_j[nnz] = aj;
+                    c_x[nnz] = result;
                     nnz += 1;
                 }
-                A_pos += 1;
+                a_pos += 1;
             } else {
                 //B_j < A_j
-                let result: T2 = op(T::zero(), Bx[B_pos]);
+                let result: T2 = op(T::zero(), b_x[b_pos]);
                 if result.nonzero() {
-                    Cj[nnz] = B_j;
-                    Cx[nnz] = result;
+                    c_j[nnz] = bj;
+                    c_x[nnz] = result;
                     nnz += 1;
                 }
-                B_pos += 1;
+                b_pos += 1;
             }
         }
 
         //tail
-        while A_pos < A_end {
-            let result: T2 = op(Ax[A_pos], T::zero());
+        while a_pos < a_end {
+            let result: T2 = op(a_x[a_pos], T::zero());
             if result.nonzero() {
-                Cj[nnz] = Aj[A_pos];
-                Cx[nnz] = result;
+                c_j[nnz] = a_j[a_pos];
+                c_x[nnz] = result;
                 nnz += 1;
             }
-            A_pos += 1;
+            a_pos += 1;
         }
-        while B_pos < B_end {
-            let result: T2 = op(T::zero(), Bx[B_pos]);
+        while b_pos < b_end {
+            let result: T2 = op(T::zero(), b_x[b_pos]);
             if result.nonzero() {
-                Cj[nnz] = Bj[B_pos];
-                Cx[nnz] = result;
+                c_j[nnz] = b_j[b_pos];
+                c_x[nnz] = result;
                 nnz += 1;
             }
-            B_pos += 1;
+            b_pos += 1;
         }
 
-        Cp[i + 1] = I::from(nnz).unwrap();
+        c_p[i + 1] = I::from(nnz).unwrap();
     }
 }
 
@@ -850,21 +850,25 @@ pub fn csr_binop_csr_canonical<I: Integer, T: Scalar, T2: Nonzero>(
 pub fn csr_binop_csr<I: Integer, T: Scalar, T2: Nonzero>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T2],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T2],
     op: Binop<T, T2>,
 ) {
-    if csr_has_canonical_format(n_row, Ap, Aj) && csr_has_canonical_format(n_row, Bp, Bj) {
-        csr_binop_csr_canonical(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, op);
+    if csr_has_canonical_format(n_row, a_p, a_j) && csr_has_canonical_format(n_row, b_p, b_j) {
+        csr_binop_csr_canonical(
+            n_row, n_col, a_p, a_j, a_x, b_p, b_j, b_x, c_p, c_j, c_x, op,
+        );
     } else {
-        csr_binop_csr_general(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, op);
+        csr_binop_csr_general(
+            n_row, n_col, a_p, a_j, a_x, b_p, b_j, b_x, c_p, c_j, c_x, op,
+        );
     }
 }
 
@@ -873,224 +877,360 @@ pub fn csr_binop_csr<I: Integer, T: Scalar, T2: Nonzero>(
 pub fn csr_ne_csr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [bool],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [bool],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a != b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a != b,
+    );
 }
 
 pub fn csr_eq_csr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [bool],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [bool],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a == b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a == b,
+    );
 }
 
 pub fn csr_lt_csr<I: Integer, T: Scalar + PartialOrd>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [bool],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [bool],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a < b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a < b,
+    );
 }
 
 pub fn csr_le_csr<I: Integer, T: Scalar + PartialOrd>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [bool],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [bool],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a <= b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a <= b,
+    );
 }
 
 pub fn csr_gt_csr<I: Integer, T: Scalar + PartialOrd>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [bool],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [bool],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a > b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a > b,
+    );
 }
 
 pub fn csr_ge_csr<I: Integer, T: Scalar + PartialOrd>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [bool],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [bool],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a >= b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a >= b,
+    );
 }
 
 pub fn csr_mul_csr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a * b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a * b,
+    );
 }
 
 pub fn csr_div_csr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a / b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a / b,
+    );
 }
 
 pub fn csr_add_csr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a + b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a + b,
+    );
 }
 
 pub fn csr_sub_csr<I: Integer, T: Scalar>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        a - b
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| a - b,
+    );
 }
 
 pub fn csr_max_csr<I: Integer, T: Scalar + PartialOrd>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        if a > b {
-            a
-        } else {
-            b
-        }
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| {
+            if a > b {
+                a
+            } else {
+                b
+            }
+        },
+    );
 }
 pub fn csr_min_csr<I: Integer, T: Scalar + PartialOrd>(
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bp: &[I],
-    Bj: &[I],
-    Bx: &[T],
-    Cp: &mut [I],
-    Cj: &mut [I],
-    Cx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_p: &[I],
+    b_j: &[I],
+    b_x: &[T],
+    c_p: &mut [I],
+    c_j: &mut [I],
+    c_x: &mut [T],
 ) {
-    csr_binop_csr(n_row, n_col, Ap, Aj, Ax, Bp, Bj, Bx, Cp, Cj, Cx, |a, b| {
-        if a < b {
-            a
-        } else {
-            b
-        }
-    });
+    csr_binop_csr(
+        n_row,
+        n_col,
+        a_p,
+        a_j,
+        a_x,
+        b_p,
+        b_j,
+        b_x,
+        c_p,
+        c_j,
+        c_x,
+        |a, b| {
+            if a < b {
+                a
+            } else {
+                b
+            }
+        },
+    );
 }
 
 /// Sum together duplicate column entries in each row of CSR matrix A
@@ -1110,28 +1250,28 @@ pub fn csr_min_csr<I: Integer, T: Scalar + PartialOrd>(
 pub fn csr_sum_duplicates<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
-    Ap: &mut [I],
-    Aj: &mut [I],
-    Ax: &mut [T],
+    a_p: &mut [I],
+    a_j: &mut [I],
+    a_x: &mut [T],
 ) {
     let mut nnz: usize = 0;
     let mut row_end: usize = 0;
     for i in 0..n_row.to_usize().unwrap() {
         let mut jj = row_end;
-        row_end = Ap[i + 1].to_usize().unwrap();
+        row_end = a_p[i + 1].to_usize().unwrap();
         while jj < row_end {
-            let j: I = Aj[jj];
-            let mut x: T = Ax[jj];
+            let j: I = a_j[jj];
+            let mut x: T = a_x[jj];
             jj += 1;
-            while jj < row_end && Aj[jj] == j {
-                x += Ax[jj];
+            while jj < row_end && a_j[jj] == j {
+                x += a_x[jj];
                 jj += 1;
             }
-            Aj[nnz] = j;
-            Ax[nnz] = x;
+            a_j[nnz] = j;
+            a_x[nnz] = x;
             nnz += 1;
         }
-        Ap[i + 1] = I::from(nnz).unwrap();
+        a_p[i + 1] = I::from(nnz).unwrap();
     }
 }
 
@@ -1150,26 +1290,26 @@ pub fn csr_sum_duplicates<I: Integer, T: Scalar>(
 pub fn csr_eliminate_zeros<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
-    Ap: &mut [I],
-    Aj: &mut [I],
-    Ax: &mut [T],
+    a_p: &mut [I],
+    a_j: &mut [I],
+    a_x: &mut [T],
 ) {
     let mut nnz: usize = 0;
     let mut row_end: usize = 0;
     for i in 0..n_row.to_usize().unwrap() {
         let mut jj = row_end;
-        row_end = Ap[i + 1].to_usize().unwrap();
+        row_end = a_p[i + 1].to_usize().unwrap();
         while jj < row_end {
-            let j: I = Aj[jj];
-            let x: T = Ax[jj];
+            let j: I = a_j[jj];
+            let x: T = a_x[jj];
             if x != T::zero() {
-                Aj[nnz] = j;
-                Ax[nnz] = x;
+                a_j[nnz] = j;
+                a_x[nnz] = x;
                 nnz += 1;
             }
             jj += 1;
         }
-        Ap[i + 1] = I::from(nnz).unwrap();
+        a_p[i + 1] = I::from(nnz).unwrap();
     }
 }
 
@@ -1194,20 +1334,20 @@ pub fn csr_eliminate_zeros<I: Integer, T: Scalar>(
 pub fn csr_matvec<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Xx: &[T],
-    Yx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    x_x: &[T],
+    y_x: &mut [T],
 ) {
     for i in 0..n_row.to_usize().unwrap() {
-        let mut sum: T = Yx[i];
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let mut sum: T = y_x[i];
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         for jj in start..end {
-            sum += Ax[jj] * Xx[Aj[jj].to_usize().unwrap()];
+            sum += a_x[jj] * x_x[a_j[jj].to_usize().unwrap()];
         }
-        Yx[i] = sum;
+        y_x[i] = sum;
     }
 }
 
@@ -1229,23 +1369,23 @@ pub fn csr_matvecs<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
     n_vecs: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Xx: &[T],
-    Yx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    x_x: &[T],
+    y_x: &mut [T],
 ) {
     let un_vecs = n_vecs.to_usize().unwrap();
 
     for i in 0..n_row.to_usize().unwrap() {
-        let y = &mut Yx[un_vecs * i..];
+        let y = &mut y_x[un_vecs * i..];
 
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         for jj in start..end {
-            let j = Aj[jj].to_usize().unwrap();
-            let a: T = Ax[jj];
-            let x = &Xx[un_vecs * j..];
+            let j = a_j[jj].to_usize().unwrap();
+            let a: T = a_x[jj];
+            let x = &x_x[un_vecs * j..];
             axpy(n_vecs, a, x, y);
         }
     }
@@ -1254,14 +1394,14 @@ pub fn csr_matvecs<I: Integer, T: Scalar>(
 pub fn csr_select<I: Integer, T: Scalar>(
     _n_row: I,
     _n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
     rowidx: &[I],
     colidx: &[I],
-    Bp: &mut Vec<I>,
-    Bj: &mut Vec<I>,
-    Bx: &mut Vec<T>,
+    b_p: &mut Vec<I>,
+    b_j: &mut Vec<I>,
+    b_x: &mut Vec<T>,
 ) {
     let new_n_row = rowidx.len();
     let mut new_nnz = 0;
@@ -1269,13 +1409,13 @@ pub fn csr_select<I: Integer, T: Scalar>(
     // Count nonzeros total/per row.
     for row in rowidx {
         let urow = row.to_usize().unwrap();
-        let row_start = Ap[urow].to_usize().unwrap();
-        let row_end = Ap[urow + 1].to_usize().unwrap();
+        let row_start = a_p[urow].to_usize().unwrap();
+        let row_end = a_p[urow + 1].to_usize().unwrap();
 
         let mut colptrs = HashMap::new(); // TODO: Cache for second pass?
 
         for jj in row_start..row_end {
-            colptrs.insert(Aj[jj].to_usize().unwrap(), jj);
+            colptrs.insert(a_j[jj].to_usize().unwrap(), jj);
         }
         for col in colidx {
             if colptrs.contains_key(&col.to_usize().unwrap()) {
@@ -1285,47 +1425,47 @@ pub fn csr_select<I: Integer, T: Scalar>(
     }
 
     // Allocate.
-    Bp.resize(new_n_row + 1, I::zero());
-    Bj.resize(new_nnz, I::zero());
-    Bx.resize(new_nnz, T::zero());
+    b_p.resize(new_n_row + 1, I::zero());
+    b_j.resize(new_nnz, I::zero());
+    b_x.resize(new_nnz, T::zero());
 
     // Assign.
-    Bp[0] = I::zero();
+    b_p[0] = I::zero();
     let mut kk = 0;
     for (r, row) in rowidx.iter().enumerate() {
         let urow = row.to_usize().unwrap();
-        let start = Ap[urow].to_usize().unwrap();
-        let end = Ap[urow + 1].to_usize().unwrap();
+        let start = a_p[urow].to_usize().unwrap();
+        let end = a_p[urow + 1].to_usize().unwrap();
 
         let mut colptrs = HashMap::new();
         for jj in start..end {
-            colptrs.insert(Aj[jj].to_usize().unwrap(), jj);
+            colptrs.insert(a_j[jj].to_usize().unwrap(), jj);
         }
 
         for (c, col) in colidx.iter().enumerate() {
             if let Some(&jj) = colptrs.get(&col.to_usize().unwrap()) {
-                Bj[kk] = I::from(c).unwrap();
-                Bx[kk] = Ax[jj];
+                b_j[kk] = I::from(c).unwrap();
+                b_x[kk] = a_x[jj];
                 kk += 1;
             }
         }
-        Bp[r + 1] = I::from(kk).unwrap();
+        b_p[r + 1] = I::from(kk).unwrap();
     }
 }
 
 pub fn get_csr_submatrix<I: Integer, T: Scalar>(
     _n_row: I,
     _n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
     ir0: I,
     ir1: I,
     ic0: I,
     ic1: I,
-    Bp: &mut Vec<I>,
-    Bj: &mut Vec<I>,
-    Bx: &mut Vec<T>,
+    b_p: &mut Vec<I>,
+    b_j: &mut Vec<I>,
+    b_x: &mut Vec<T>,
 ) {
     let uir0 = ir0.to_usize().unwrap();
 
@@ -1336,39 +1476,39 @@ pub fn get_csr_submatrix<I: Integer, T: Scalar>(
 
     // Count nonzeros total/per row.
     for i in 0..new_n_row {
-        let row_start = Ap[uir0 + i].to_usize().unwrap();
-        let row_end = Ap[uir0 + i + 1].to_usize().unwrap();
+        let row_start = a_p[uir0 + i].to_usize().unwrap();
+        let row_end = a_p[uir0 + i + 1].to_usize().unwrap();
 
         for jj in row_start..row_end {
-            if (Aj[jj] >= ic0) && (Aj[jj] < ic1) {
+            if (a_j[jj] >= ic0) && (a_j[jj] < ic1) {
                 new_nnz += 1;
             }
         }
     }
 
     // Allocate.
-    Bp.resize(new_n_row + 1, I::zero());
-    Bj.resize(new_nnz, I::zero());
-    Bx.resize(new_nnz, T::zero());
+    b_p.resize(new_n_row + 1, I::zero());
+    b_j.resize(new_nnz, I::zero());
+    b_x.resize(new_nnz, T::zero());
 
     // Assign.
     // (*Bp)[0] = 0;
-    Bp[0] = I::zero();
+    b_p[0] = I::zero();
     for i in 0..new_n_row {
-        let row_start = Ap[uir0 + i].to_usize().unwrap();
-        let row_end = Ap[uir0 + i + 1].to_usize().unwrap();
+        let row_start = a_p[uir0 + i].to_usize().unwrap();
+        let row_end = a_p[uir0 + i + 1].to_usize().unwrap();
 
         for jj in row_start..row_end {
-            if (Aj[jj] >= ic0) && (Aj[jj] < ic1) {
+            if (a_j[jj] >= ic0) && (a_j[jj] < ic1) {
                 // (*Bj)[kk] = Aj[jj] - ic0;
-                Bj[kk] = Aj[jj] - ic0;
+                b_j[kk] = a_j[jj] - ic0;
                 // (*Bx)[kk] = Ax[jj];
-                Bx[kk] = Ax[jj];
+                b_x[kk] = a_x[jj];
                 kk += 1;
             }
         }
         // (*Bp)[i+1] = kk;
-        Bp[i + 1] = I::from(kk).unwrap();
+        b_p[i + 1] = I::from(kk).unwrap();
     }
 }
 
@@ -1387,22 +1527,22 @@ pub fn get_csr_submatrix<I: Integer, T: Scalar>(
 pub fn csr_row_index<I: Integer, T: Scalar>(
     n_row_idx: I,
     rows: &[I],
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bj: &mut Vec<I>,
-    Bx: &mut Vec<T>,
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_j: &mut Vec<I>,
+    b_x: &mut Vec<T>,
 ) {
     for i in 0..n_row_idx.to_usize().unwrap() {
         let row = rows[i].to_usize().unwrap();
 
-        let row_start = Ap[row].to_usize().unwrap();
-        let row_end = Ap[row + 1].to_usize().unwrap();
+        let row_start = a_p[row].to_usize().unwrap();
+        let row_end = a_p[row + 1].to_usize().unwrap();
 
         // Bj = copy(Aj + row_start, Aj + row_end, Bj);
-        Bj.extend_from_slice(&Aj[row_start..row_end]);
+        b_j.extend_from_slice(&a_j[row_start..row_end]);
         // Bx = copy(Ax + row_start, Ax + row_end, Bx);
-        Bx.extend_from_slice(&Ax[row_start..row_end]);
+        b_x.extend_from_slice(&a_x[row_start..row_end]);
     }
 }
 
@@ -1423,24 +1563,24 @@ pub fn csr_row_slice<I: Integer, T: Scalar>(
     start: I,
     stop: I,
     step: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bj: &mut Vec<I>,
-    Bx: &mut Vec<T>,
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    b_j: &mut Vec<I>,
+    b_x: &mut Vec<T>,
 ) {
     if step > I::zero() {
         let mut row = start;
         while row < stop {
             let urow = row.to_usize().unwrap();
 
-            let row_start = Ap[urow].to_usize().unwrap();
-            let row_end = Ap[urow + 1].to_usize().unwrap();
+            let row_start = a_p[urow].to_usize().unwrap();
+            let row_end = a_p[urow + 1].to_usize().unwrap();
 
             // Bj = copy(Aj + row_start, Aj + row_end, Bj);
-            Bj.extend_from_slice(&Aj[row_start..row_end]);
+            b_j.extend_from_slice(&a_j[row_start..row_end]);
             // Bx = copy(Ax + row_start, Ax + row_end, Bx);
-            Bx.extend_from_slice(&Ax[row_start..row_end]);
+            b_x.extend_from_slice(&a_x[row_start..row_end]);
 
             row += step;
         }
@@ -1449,13 +1589,13 @@ pub fn csr_row_slice<I: Integer, T: Scalar>(
         while row > stop {
             let urow = row.to_usize().unwrap();
 
-            let row_start = Ap[urow].to_usize().unwrap();
-            let row_end = Ap[urow + 1].to_usize().unwrap();
+            let row_start = a_p[urow].to_usize().unwrap();
+            let row_end = a_p[urow + 1].to_usize().unwrap();
 
             // Bj = copy(Aj + row_start, Aj + row_end, Bj);
-            Bj.extend_from_slice(&Aj[row_start..row_end]);
+            b_j.extend_from_slice(&a_j[row_start..row_end]);
             // Bx = copy(Ax + row_start, Ax + row_end, Bx);
-            Bx.extend_from_slice(&Ax[row_start..row_end]);
+            b_x.extend_from_slice(&a_x[row_start..row_end]);
 
             row += step;
         }
@@ -1481,10 +1621,10 @@ pub fn csr_column_index1<I: Integer>(
     col_idxs: &[I],
     n_row: I,
     n_col: I,
-    Ap: &[I],
-    Aj: &[I],
+    a_p: &[I],
+    a_j: &[I],
     col_offsets: &mut [I],
-    Bp: &mut [I],
+    b_p: &mut [I],
 ) {
     // bincount(col_idxs)
     for jj in 0..n_idx.to_usize().unwrap() {
@@ -1494,15 +1634,15 @@ pub fn csr_column_index1<I: Integer>(
 
     // Compute new indptr
     let mut new_nnz = I::zero();
-    Bp[0] = I::zero();
+    b_p[0] = I::zero();
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
 
         for jj in start..end {
-            new_nnz += col_offsets[Aj[jj].to_usize().unwrap()];
+            new_nnz += col_offsets[a_j[jj].to_usize().unwrap()];
         }
-        Bp[i + 1] = new_nnz;
+        b_p[i + 1] = new_nnz;
     }
 
     // cumsum in-place
@@ -1528,14 +1668,14 @@ pub fn csr_column_index2<I: Integer, T: Scalar>(
     col_order: &[I],
     col_offsets: &[I],
     nnz: I,
-    Aj: &[I],
-    Ax: &[T],
-    Bj: &mut [I],
-    Bx: &mut [T],
+    a_j: &[I],
+    a_x: &[T],
+    b_j: &mut [I],
+    b_x: &mut [T],
 ) {
     let mut n: usize = 0;
     for jj in 0..nnz.to_usize().unwrap() {
-        let j = Aj[jj].to_usize().unwrap();
+        let j = a_j[jj].to_usize().unwrap();
         let offset = col_offsets[j].to_usize().unwrap();
         let prev_offset: usize = if j == 0 {
             0
@@ -1543,10 +1683,10 @@ pub fn csr_column_index2<I: Integer, T: Scalar>(
             col_offsets[j - 1].to_usize().unwrap()
         };
         if offset != prev_offset {
-            let v: T = Ax[jj];
+            let v: T = a_x[jj];
             for k in prev_offset..offset {
-                Bj[n] = col_order[k];
-                Bx[n] = v;
+                b_j[n] = col_order[k];
+                b_x[n] = v;
                 n += 1;
             }
         }
@@ -1559,15 +1699,15 @@ pub fn csr_column_index2<I: Integer, T: Scalar>(
 ///   I  nnz             - number of nonzeros in A
 ///   I  Ai[nnz(A)]      - row indices
 ///   I  Aj[nnz(A)]      - column indices
-pub fn csr_count_diagonals<I: Integer>(n_row: I, Ap: &[I], Aj: &[I]) -> I {
+pub fn csr_count_diagonals<I: Integer>(n_row: I, a_p: &[I], a_j: &[I]) -> I {
     let mut diagonals = HashSet::<usize>::new();
 
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
 
         for jj in start..end {
-            diagonals.insert(Aj[jj].to_usize().unwrap() - i);
+            diagonals.insert(a_j[jj].to_usize().unwrap() - i);
         }
     }
     I::from(diagonals.len()).unwrap()
@@ -1823,21 +1963,21 @@ pub fn csr_count_diagonals<I: Integer>(n_row: I, Ap: &[I], Aj: &[I]) -> I {
 pub fn csr_tocoo<I: Integer, T: Scalar>(
     n_row: I,
     _n_col: I,
-    Ap: &[I],
-    Aj: &[I],
-    Ax: &[T],
-    Bi: &mut [I],
-    Bj: &mut [I],
-    Bx: &mut [T],
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    a_i: &mut [I],
+    b_j: &mut [I],
+    b_x: &mut [T],
 ) {
     let mut k = 0;
     for i in 0..n_row.to_usize().unwrap() {
-        let start = Ap[i].to_usize().unwrap();
-        let end = Ap[i + 1].to_usize().unwrap();
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
         for jj in start..end {
-            Bi[k] = I::from(i).unwrap();
-            Bj[k] = Aj[jj];
-            Bx[k] = Ax[jj];
+            a_i[k] = I::from(i).unwrap();
+            b_j[k] = a_j[jj];
+            b_x[k] = a_x[jj];
             k += 1;
         }
     }

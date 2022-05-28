@@ -238,15 +238,15 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             &mut data,
         );
 
-        let mut A = CSC {
+        let mut a_mat = CSC {
             rows: self.rows,
             cols: self.cols,
             rowidx,
             colptr,
             data,
         };
-        A.sum_duplicates();
-        A
+        a_mat.sum_duplicates();
+        a_mat
     }
 
     /// Converts the matrix into Compressed Sparse Row (CSR) format.
@@ -269,15 +269,15 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             &mut data,
         );
 
-        let mut A = CSR {
+        let mut a_mat = CSR {
             rows: self.rows,
             cols: self.cols,
             rowptr,
             colidx,
             data,
         };
-        A.sum_duplicates();
-        A
+        a_mat.sum_duplicates().unwrap();
+        a_mat
     }
 
     /// Converts the matrix into a dense 2D slice.
@@ -365,14 +365,14 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         // copy(data[k..], m.data);
         data.extend(&m.data);
 
-        let A = Coo {
+        let a_mat = Coo {
             rows: self.rows,
             cols: self.cols,
             rowidx,
             colidx,
             data,
         };
-        A.to_csr() // Duplicate entries are summed.
+        a_mat.to_csr() // Duplicate entries are summed.
     }
 
     pub fn to_string(&self) -> String {
@@ -392,31 +392,31 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     /// Creates a new coordinate matrix by vertically stacking the
     /// given input matrices. The matrix arguments must have the same number
     /// of columns.
-    pub fn v_stack(A: &Coo<I, T>, B: &Coo<I, T>) -> Result<Coo<I, T>, String> {
-        if A.cols != B.cols {
-            return Err(format!("cols mismatch {} != {}", A.cols, B.cols));
+    pub fn v_stack(a_mat: &Coo<I, T>, b_mat: &Coo<I, T>) -> Result<Coo<I, T>, String> {
+        if a_mat.cols != b_mat.cols {
+            return Err(format!("cols mismatch {} != {}", a_mat.cols, b_mat.cols));
         }
 
-        let mut shifted = vec![I::zero(); B.rowidx.len()];
-        for (i, &r) in B.rowidx.iter().enumerate() {
-            shifted[i] = r + A.rows;
+        let mut shifted = vec![I::zero(); b_mat.rowidx.len()];
+        for (i, &r) in b_mat.rowidx.iter().enumerate() {
+            shifted[i] = r + a_mat.rows;
         }
 
-        let rows = A.rows + B.rows;
-        let cols = A.cols;
-        let nnz = (A.nnz() + B.nnz()).to_usize().unwrap();
+        let rows = a_mat.rows + b_mat.rows;
+        let cols = a_mat.cols;
+        let nnz = (a_mat.nnz() + b_mat.nnz()).to_usize().unwrap();
 
         let mut rowidx = Vec::with_capacity(nnz);
-        rowidx.extend(&A.rowidx);
+        rowidx.extend(&a_mat.rowidx);
         rowidx.extend(&shifted);
 
         let mut colidx = Vec::with_capacity(nnz);
-        colidx.extend(&A.colidx);
-        colidx.extend(&B.colidx);
+        colidx.extend(&a_mat.colidx);
+        colidx.extend(&b_mat.colidx);
 
         let mut data = Vec::with_capacity(nnz);
-        data.extend(&A.data);
-        data.extend(&B.data);
+        data.extend(&a_mat.data);
+        data.extend(&b_mat.data);
 
         Ok(Coo {
             rows,
@@ -430,31 +430,31 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     /// Creates a new coordinate matrix by horizontally stacking the
     /// given input matrices. The matrix arguments must have the same number
     /// of rows.
-    pub fn h_stack(A: &Coo<I, T>, B: &Coo<I, T>) -> Result<Coo<I, T>, String> {
-        if A.rows != B.rows {
-            return Err(format!("rows mismatch {} != {}", A.rows, B.rows));
+    pub fn h_stack(a_mat: &Coo<I, T>, b_mat: &Coo<I, T>) -> Result<Coo<I, T>, String> {
+        if a_mat.rows != b_mat.rows {
+            return Err(format!("rows mismatch {} != {}", a_mat.rows, b_mat.rows));
         }
 
-        let mut shifted = vec![I::zero(); B.colidx.len()];
-        for (i, &c) in B.colidx.iter().enumerate() {
-            shifted[i] = shifted[i] + (c + A.cols)
+        let mut shifted = vec![I::zero(); b_mat.colidx.len()];
+        for (i, &c) in b_mat.colidx.iter().enumerate() {
+            shifted[i] = shifted[i] + (c + a_mat.cols)
         }
 
-        let rows = A.rows;
-        let cols = A.cols + B.cols;
-        let nnz = (A.nnz() + B.nnz()).to_usize().unwrap();
+        let rows = a_mat.rows;
+        let cols = a_mat.cols + b_mat.cols;
+        let nnz = (a_mat.nnz() + b_mat.nnz()).to_usize().unwrap();
 
         let mut rowidx = Vec::with_capacity(nnz);
-        rowidx.extend(&A.rowidx);
-        rowidx.extend(&B.rowidx);
+        rowidx.extend(&a_mat.rowidx);
+        rowidx.extend(&b_mat.rowidx);
 
         let mut colidx = Vec::with_capacity(nnz);
-        colidx.extend(&A.colidx);
+        colidx.extend(&a_mat.colidx);
         colidx.extend(shifted);
 
         let mut data = Vec::with_capacity(nnz);
-        data.extend(&A.data);
-        data.extend(&B.data);
+        data.extend(&a_mat.data);
+        data.extend(&b_mat.data);
 
         Coo::new(rows, cols, rowidx, colidx, data)
     }
@@ -467,13 +467,13 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     ///        -----------
     /// An error is returned if the matrix dimensions do not match correctly.
     pub fn compose(
-        J11: &Coo<I, T>,
-        J12: &Coo<I, T>,
-        J21: &Coo<I, T>,
-        J22: &Coo<I, T>,
+        j11: &Coo<I, T>,
+        j12: &Coo<I, T>,
+        j21: &Coo<I, T>,
+        j22: &Coo<I, T>,
     ) -> Result<Coo<I, T>, String> {
-        let J1X = Coo::h_stack(J11, J12)?;
-        let J2X = Coo::h_stack(J21, J22)?;
-        Coo::v_stack(&J1X, &J2X)
+        let j1x = Coo::h_stack(j11, j12)?;
+        let j2x = Coo::h_stack(j21, j22)?;
+        Coo::v_stack(&j1x, &j2x)
     }
 }
