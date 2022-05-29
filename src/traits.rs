@@ -1,6 +1,6 @@
 use std::{fmt, ops};
 
-pub trait Integer: num_traits::PrimInt + ops::AddAssign + fmt::Display {}
+pub trait Integer: num_traits::PrimInt + ops::AddAssign + ops::SubAssign + fmt::Display {}
 
 impl Integer for usize {}
 impl Integer for isize {}

@@ -4,6 +4,7 @@ mod col;
 mod coord;
 mod dense;
 mod diag;
+mod graph;
 mod row;
 #[cfg(test)]
 mod test;

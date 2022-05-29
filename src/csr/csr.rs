@@ -1,5 +1,6 @@
 use crate::coo::Coo;
 use crate::csc::CSC;
+use crate::graph::cs_graph_components;
 use crate::row::{
     csr_diagonal, csr_has_canonical_format, csr_has_sorted_indices, csr_matmat, csr_matmat_maxnnz,
     csr_matvec, csr_select, csr_sort_indices, csr_sum_duplicates, csr_tocsc, csr_todense,
@@ -374,5 +375,22 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
             &mut diag,
         );
         diag
+    }
+
+    /// Determine connected compoments of a compressed sparse graph.
+    pub fn connected_components<F: Integer + num_traits::Signed>(
+        &self,
+    ) -> Result<(I, Vec<F>), String> {
+        if self.cols != self.rows {
+            return Err(format!(
+                "matrix must be square, rows = {} cols = {}",
+                self.rows, self.cols
+            )
+            .to_string());
+        }
+        let n = self.rows;
+        let mut flag = vec![F::zero(); n.to_usize().unwrap()];
+        let ncc = cs_graph_components::<I, T, F>(n, &self.rowptr, &self.colidx, &mut flag)?;
+        Ok((ncc, flag))
     }
 }
