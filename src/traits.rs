@@ -1,4 +1,9 @@
+use pretty_dtoa::{dtoa, FmtFloatConfig};
 use std::{fmt, ops};
+
+const DEFAULT_FLOAT_CONFIG: FmtFloatConfig = FmtFloatConfig::default()
+    .add_point_zero(false)
+    .max_significant_digits(6);
 
 pub trait Integer: num_traits::PrimInt + ops::AddAssign + ops::SubAssign + fmt::Display {}
 
@@ -60,13 +65,42 @@ pub trait Scalar<Output = Self>:
     + fmt::Display
     + Nonzero
 {
+    fn pretty_string(&self, config: Option<FmtFloatConfig>) -> String;
 }
 
-impl Scalar for f64 {}
-impl Scalar for f32 {}
+impl Scalar for f64 {
+    fn pretty_string(&self, config: Option<FmtFloatConfig>) -> String {
+        dtoa(*self, config.unwrap_or(DEFAULT_FLOAT_CONFIG))
+    }
+}
+impl Scalar for f32 {
+    fn pretty_string(&self, config: Option<FmtFloatConfig>) -> String {
+        dtoa(*self as f64, config.unwrap_or(DEFAULT_FLOAT_CONFIG))
+    }
+}
 
-impl Scalar for num_complex::Complex<f64> {}
-impl Scalar for num_complex::Complex<f32> {}
+impl Scalar for num_complex::Complex<f64> {
+    fn pretty_string(&self, config: Option<FmtFloatConfig>) -> String {
+        format!(
+            "{}{}j{}",
+            dtoa(self.re, config.unwrap_or(DEFAULT_FLOAT_CONFIG)),
+            if self.im.signum() < 0.0 { "-" } else { "+" },
+            dtoa(self.im, config.unwrap_or(DEFAULT_FLOAT_CONFIG))
+        )
+        .to_string()
+    }
+}
+impl Scalar for num_complex::Complex<f32> {
+    fn pretty_string(&self, config: Option<FmtFloatConfig>) -> String {
+        format!(
+            "{}{}j{}",
+            dtoa(self.re as f64, config.unwrap_or(DEFAULT_FLOAT_CONFIG)),
+            if self.im.signum() < 0.0 { "-" } else { "+" },
+            dtoa(self.im as f64, config.unwrap_or(DEFAULT_FLOAT_CONFIG))
+        )
+        .to_string()
+    }
+}
 
 pub trait Nonzero {
     fn nonzero(&self) -> bool;

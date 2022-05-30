@@ -6,6 +6,7 @@ use crate::row::{
     csr_matvec, csr_select, csr_sort_indices, csr_sum_duplicates, csr_tocsc, csr_todense,
     expandptr,
 };
+use crate::table::csr_table;
 use crate::traits::{Integer, Scalar};
 use std::cmp::min;
 
@@ -392,5 +393,20 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         let mut flag = vec![F::zero(); n.to_usize().unwrap()];
         let ncc = cs_graph_components::<I, T, F>(n, &self.rowptr, &self.colidx, &mut flag)?;
         Ok((ncc, flag))
+    }
+
+    /// Returns a tabular representation of the matrix.
+    pub fn to_table(&self) -> String {
+        let w = csr_table(
+            self.rows,
+            self.cols,
+            &self.rowptr,
+            &self.colidx,
+            &self.data,
+            false,
+            vec![],
+            None,
+        );
+        String::from_utf8(w).unwrap()
     }
 }
