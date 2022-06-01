@@ -1412,13 +1412,13 @@ pub fn csr_select<I: Integer, T: Scalar>(
         let row_start = a_p[urow].to_usize().unwrap();
         let row_end = a_p[urow + 1].to_usize().unwrap();
 
-        let mut colptrs = HashMap::new(); // TODO: Cache for second pass?
+        let mut colptrs = HashSet::new(); // TODO: Cache for second pass?
 
         for jj in row_start..row_end {
-            colptrs.insert(a_j[jj].to_usize().unwrap(), jj);
+            colptrs.insert(a_j[jj].to_usize().unwrap());
         }
         for col in colidx {
-            if colptrs.contains_key(&col.to_usize().unwrap()) {
+            if colptrs.contains(&col.to_usize().unwrap()) {
                 new_nnz += 1;
             }
         }

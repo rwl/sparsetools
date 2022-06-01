@@ -7,14 +7,11 @@ use std::cmp::min;
 /// A sparse matrix with scalar values stored in Coordinate format
 /// (also called "aij", "ijv" or "triplet" format).
 pub struct Coo<I: Integer, T: Scalar> {
-    pub rows: I,
-    pub cols: I,
-    /// Row indexes (size nnz).
-    pub rowidx: Vec<I>,
-    /// Column indexes (size nnz).
-    pub colidx: Vec<I>,
-    /// Explicitly stored values (size nnz).
-    pub data: Vec<T>,
+    pub(crate) rows: I,
+    pub(crate) cols: I,
+    pub(crate) rowidx: Vec<I>,
+    pub(crate) colidx: Vec<I>,
+    pub(crate) data: Vec<T>,
 }
 
 impl<I: Integer, T: Scalar> Coo<I, T> {
@@ -51,7 +48,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     }
 
     /// Creates a sparse matrix in coordinate format from a full matrix.
-    pub fn from_dense(a: &[&[T]]) -> Self {
+    pub fn from_dense(a: &[Vec<T>]) -> Self {
         let (m, mut n) = (a.len(), 0);
         if m > 0 {
             n = a[0].len();
@@ -78,6 +75,31 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             colidx,
             data,
         }
+    }
+
+    /// Number of rows.
+    pub fn rows(&self) -> I {
+        self.rows
+    }
+
+    /// Number of columns.
+    pub fn cols(&self) -> I {
+        self.cols
+    }
+
+    /// Row indexes (size nnz).
+    pub fn rowidx(&self) -> &[I] {
+        &self.rowidx
+    }
+
+    /// Column indexes (size nnz).
+    pub fn colidx(&self) -> &[I] {
+        &self.colidx
+    }
+
+    /// Explicitly stored values (size nnz).
+    pub fn data(&self) -> &[T] {
+        &self.data
     }
 
     pub fn set(&mut self, row: I, col: I, v: T) {
@@ -181,7 +203,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     }
 
     /// Returns the count of explicitly stored values (nonzeros).
-    fn nnz(&self) -> I {
+    pub fn nnz(&self) -> I {
         I::from(self.data.len()).unwrap()
     }
 

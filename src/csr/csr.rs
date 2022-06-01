@@ -6,20 +6,18 @@ use crate::row::{
     csr_matvec, csr_select, csr_sort_indices, csr_sum_duplicates, csr_tocsc, csr_todense,
     expandptr,
 };
-use crate::table::csr_table;
+use crate::string::{csr_string, csr_table};
 use crate::traits::{Integer, Scalar};
 use std::cmp::min;
 
 /// A sparse matrix with scalar values stored in Compressed Sparse Row (CSR) format.
+#[derive(Clone)]
 pub struct CSR<I: Integer, T: Scalar> {
-    pub rows: I,
-    pub cols: I,
-    /// Row pointers (size rows+1).
-    pub rowptr: Vec<I>,
-    /// Column indexes (size nnz).
-    pub colidx: Vec<I>,
-    /// Explicitly stored values (size nnz).
-    pub data: Vec<T>,
+    pub(crate) rows: I,
+    pub(crate) cols: I,
+    pub(crate) rowptr: Vec<I>,
+    pub(crate) colidx: Vec<I>,
+    pub(crate) data: Vec<T>,
 }
 
 impl<I: Integer, T: Scalar> CSR<I, T> {
@@ -70,6 +68,31 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
             colidx,
             data,
         }
+    }
+
+    /// Number of rows.
+    pub fn rows(&self) -> I {
+        self.rows
+    }
+
+    /// Number of columns.
+    pub fn cols(&self) -> I {
+        self.cols
+    }
+
+    /// Row pointers (size rows+1).
+    pub fn rowptr(&self) -> &[I] {
+        &self.rowptr
+    }
+
+    /// Column indexes (size nnz).
+    pub fn colidx(&self) -> &[I] {
+        &self.colidx
+    }
+
+    /// Explicitly stored values (size nnz).
+    pub fn data(&self) -> &[T] {
+        &self.data
     }
 
     /// Returns the count of explicitly-stored values (nonzeros).
@@ -393,6 +416,19 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         let mut flag = vec![F::zero(); n.to_usize().unwrap()];
         let ncc = cs_graph_components::<I, T, F>(n, &self.rowptr, &self.colidx, &mut flag)?;
         Ok((ncc, flag))
+    }
+
+    /// Returns a string representation of the matrix.
+    pub fn to_string(&self) -> String {
+        let w = csr_string(
+            self.rows,
+            self.cols,
+            &self.rowptr,
+            &self.colidx,
+            &self.data,
+            vec![],
+        );
+        String::from_utf8(w).unwrap()
     }
 
     /// Returns a tabular representation of the matrix.

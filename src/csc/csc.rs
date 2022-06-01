@@ -10,14 +10,11 @@ use std::cmp::min;
 
 /// A sparse matrix with scalar values stored in Compressed Sparse Column (CSC) format.
 pub struct CSC<I: Integer, T: Scalar> {
-    pub rows: I,
-    pub cols: I,
-    /// Row indexes (size nnz).
-    pub rowidx: Vec<I>,
-    /// Column pointers (size cols+1).
-    pub colptr: Vec<I>,
-    /// Explicitly stored values (size nnz).
-    pub data: Vec<T>,
+    pub(crate) rows: I,
+    pub(crate) cols: I,
+    pub(crate) rowidx: Vec<I>,
+    pub(crate) colptr: Vec<I>,
+    pub(crate) data: Vec<T>,
 }
 
 impl<I: Integer, T: Scalar> CSC<I, T> {
@@ -68,6 +65,31 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             colptr,
             data,
         }
+    }
+
+    /// Number of rows.
+    pub fn rows(&self) -> I {
+        self.rows
+    }
+
+    /// Number of columns.
+    pub fn cols(&self) -> I {
+        self.cols
+    }
+
+    /// Row indexes (size nnz).
+    pub fn rowidx(&self) -> &[I] {
+        &self.rowidx
+    }
+
+    /// Column pointers (size cols+1).
+    pub fn colptr(&self) -> &[I] {
+        &self.colptr
+    }
+
+    /// Explicitly stored values (size nnz).
+    pub fn data(&self) -> &[T] {
+        &self.data
     }
 
     pub fn shape(&self) -> (I, I) {

@@ -6,7 +6,7 @@ mod dense;
 mod diag;
 mod graph;
 mod row;
-mod table;
+mod string;
 #[cfg(test)]
 mod test;
 mod traits;

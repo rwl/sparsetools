@@ -4,13 +4,13 @@ use crate::csr::CSR;
 use crate::traits::{Integer, Scalar};
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::ops::Deref;
 
 /// A sparse matrix with scalar values stored in Dictionary of Keys format.
 pub struct DoK<I, T> {
-    pub rows: I,
-    pub cols: I,
-    /// Explicitly stored values (size nnz).
-    pub data: HashMap<(I, I), T>,
+    pub(crate) rows: I,
+    pub(crate) cols: I,
+    pub(crate) data: HashMap<(I, I), T>,
 }
 
 impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
@@ -41,6 +41,16 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
             }
         }
         mat
+    }
+
+    /// Number of rows.
+    pub fn rows(&self) -> I {
+        self.rows
+    }
+
+    /// Number of columns.
+    pub fn cols(&self) -> I {
+        self.cols
     }
 
     pub fn nnz(&self) -> I {
@@ -126,5 +136,13 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
             buf.push_str(&format!("({}, {}) {}", i, j, v));
         }
         buf
+    }
+}
+
+impl<I, T> Deref for DoK<I, T> {
+    type Target = HashMap<(I, I), T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }

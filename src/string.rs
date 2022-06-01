@@ -4,6 +4,30 @@ use std::collections::HashMap;
 use std::io::Write;
 use tabwriter::{Alignment, TabWriter};
 
+/// Write A as a sequence of triples.
+pub fn csr_string<I: Integer, T: Scalar, W: Write>(
+    n_row: I,
+    _n_col: I,
+    a_p: &[I],
+    a_j: &[I],
+    a_x: &[T],
+    mut w: W,
+) -> W {
+    for i in 0..n_row.to_usize().unwrap() {
+        let start = a_p[i].to_usize().unwrap();
+        let end = a_p[i + 1].to_usize().unwrap();
+
+        for jj in start..end {
+            writeln!(w, "({}, {}) {}", i, a_j[jj], a_x[jj]).unwrap();
+        }
+    }
+    w
+}
+
+/// Write A as a columnar table.
+///
+/// Input: A is assumed to have canonical format.
+/// Rows and columns may optionally be labelled with their index number.
 pub fn csr_table<I: Integer, S: Scalar, W: Write>(
     n_row: I,
     n_col: I,
@@ -14,6 +38,7 @@ pub fn csr_table<I: Integer, S: Scalar, W: Write>(
     w: W,
     fmt_float_config: Option<FmtFloatConfig>,
 ) -> W {
+    let un_row = n_row.to_usize().unwrap();
     let un_col = n_col.to_usize().unwrap();
 
     let mut tw = TabWriter::new(w)
@@ -29,7 +54,7 @@ pub fn csr_table<I: Integer, S: Scalar, W: Write>(
         tw.write(b"\n").unwrap();
     }
 
-    for r in 0..n_row.to_usize().unwrap() {
+    for r in 0..un_row {
         if label {
             write!(tw, "{}\t", r).unwrap();
         }
