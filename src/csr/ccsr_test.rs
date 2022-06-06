@@ -1,4 +1,3 @@
-use crate::csr::CCSR;
 use crate::csr::CSR;
 use crate::test;
 

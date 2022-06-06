@@ -1,5 +1,6 @@
 use crate::coo::Coo;
 use crate::csc::CSC;
+use crate::csr::CCSR;
 use crate::graph::cs_graph_components;
 use crate::row::{
     csr_diagonal, csr_has_canonical_format, csr_has_sorted_indices, csr_matmat, csr_matmat_maxnnz,
@@ -7,12 +8,12 @@ use crate::row::{
     expandptr,
 };
 use crate::string::{csr_string, csr_table};
-use crate::traits::{Integer, Scalar};
+use crate::traits::{Float, Integer, Scalar};
 use std::cmp::min;
 
 /// A sparse matrix with scalar values stored in Compressed Sparse Row (CSR) format.
 #[derive(Clone)]
-pub struct CSR<I: Integer, T: Scalar> {
+pub struct CSR<I, T> {
     pub(crate) rows: I,
     pub(crate) cols: I,
     pub(crate) rowptr: Vec<I>,
@@ -104,6 +105,11 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         }
     }
 
+    /// Vector of explicitly stored values (size nnz).
+    pub fn to_vec(&self) -> Vec<T> {
+        self.data.to_vec()
+    }
+
     /// Creates a CSC matrix that is the transpose of the receiver.
     /// The underlying index and data slices are not copied.
     pub fn transpose(self) -> CSC<I, T> {
@@ -116,9 +122,16 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         }
     }
 
-    /// An alias for `transpose`.
-    pub fn t(self) -> CSC<I, T> {
-        self.transpose()
+    /// Returns the transpose of the receiver.
+    pub fn t(&self) -> CSR<I, T> {
+        let t = CSC {
+            rows: self.cols,
+            cols: self.rows,
+            rowidx: self.colidx.clone(),
+            colptr: self.rowptr.clone(),
+            data: self.data.clone(),
+        };
+        t.to_csr()
     }
 
     /// Returns true if the matrix has sorted indexes and no duplicates.
@@ -445,4 +458,13 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         );
         String::from_utf8(w).unwrap()
     }
+}
+
+pub fn conj<I, F, M>(csr: &M) -> M
+where
+    I: Integer,
+    F: Float,
+    M: CCSR<I, F>,
+{
+    csr.conj()
 }

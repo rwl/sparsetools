@@ -1,3 +1,10 @@
+mod ccoo;
 mod coo;
 
-pub use coo::Coo;
+pub mod add;
+
+#[cfg(test)]
+mod coo_test;
+
+pub use ccoo::*;
+pub use coo::*;

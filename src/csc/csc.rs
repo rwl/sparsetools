@@ -9,7 +9,7 @@ use crate::traits::{Integer, Scalar};
 use std::cmp::min;
 
 /// A sparse matrix with scalar values stored in Compressed Sparse Column (CSC) format.
-pub struct CSC<I: Integer, T: Scalar> {
+pub struct CSC<I, T> {
     pub(crate) rows: I,
     pub(crate) cols: I,
     pub(crate) rowidx: Vec<I>,

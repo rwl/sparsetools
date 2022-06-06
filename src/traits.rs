@@ -5,7 +5,10 @@ const DEFAULT_FLOAT_CONFIG: FmtFloatConfig = FmtFloatConfig::default()
     .add_point_zero(false)
     .max_significant_digits(6);
 
-pub trait Integer: num_traits::PrimInt + ops::AddAssign + ops::SubAssign + fmt::Display {}
+pub trait Integer:
+    num_traits::PrimInt + ops::AddAssign + ops::SubAssign + fmt::Display + fmt::Debug
+{
+}
 
 impl Integer for usize {}
 impl Integer for isize {}

@@ -10,3 +10,6 @@ rand = "0.8"
 tabwriter = "1.2"
 pretty_dtoa = "0.3"
 superslice = "1.0"
+opimps = "0.1"
+
+densetools = { path = "../densetools", optional = true }

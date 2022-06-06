@@ -1,51 +1,45 @@
-use crate::csr::CSR;
+use crate::coo::Coo;
 use crate::traits::{Complex, Float, Integer};
 
-pub trait CCSR<I, F> {
+pub trait CCoo<I, F> {
     fn conj(&self) -> Self;
-    fn real(&self) -> CSR<I, F>;
-    fn imag(&self) -> CSR<I, F>;
-    /// Returns the conjugate transpose of self.
-    fn h(&self) -> Self;
+    fn real(&self) -> Coo<I, F>;
+    fn imag(&self) -> Coo<I, F>;
 }
 
-impl<I, F, C> CCSR<I, F> for CSR<I, C>
+impl<I, F, C> CCoo<I, F> for Coo<I, C>
 where
     I: Integer,
     F: Float,
     C: Complex<F>,
 {
-    fn conj(&self) -> CSR<I, C> {
-        CSR {
+    fn conj(&self) -> Coo<I, C> {
+        Coo {
             rows: self.rows,
             cols: self.cols,
-            rowptr: self.rowptr.clone(),
+            rowidx: self.rowidx.clone(),
             colidx: self.colidx.clone(),
             data: self.data.iter().map(|d| d.conj()).collect(),
         }
     }
 
-    fn real(&self) -> CSR<I, F> {
-        CSR {
+    fn real(&self) -> Coo<I, F> {
+        Coo {
             rows: self.rows,
             cols: self.cols,
-            rowptr: self.rowptr.clone(),
+            rowidx: self.rowidx.clone(),
             colidx: self.colidx.clone(),
             data: self.data.iter().map(|d| d.real()).collect(),
         }
     }
 
-    fn imag(&self) -> CSR<I, F> {
-        CSR {
+    fn imag(&self) -> Coo<I, F> {
+        Coo {
             rows: self.rows,
             cols: self.cols,
-            rowptr: self.rowptr.clone(),
+            rowidx: self.rowidx.clone(),
             colidx: self.colidx.clone(),
             data: self.data.iter().map(|d| d.imag()).collect(),
         }
-    }
-
-    fn h(&self) -> Self {
-        self.conj().t()
     }
 }

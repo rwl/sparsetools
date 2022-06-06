@@ -3,10 +3,12 @@ use crate::csc::CSC;
 use crate::csr::CSR;
 use crate::traits::{Integer, Scalar};
 use std::cmp::min;
+use std::ops::Neg;
 
 /// A sparse matrix with scalar values stored in Coordinate format
 /// (also called "aij", "ijv" or "triplet" format).
-pub struct Coo<I: Integer, T: Scalar> {
+#[derive(Clone)]
+pub struct Coo<I, T> {
     pub(crate) rows: I,
     pub(crate) cols: I,
     pub(crate) rowidx: Vec<I>,
@@ -41,9 +43,9 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         Self {
             rows,
             cols,
-            rowidx: vec![I::zero(); nnz.to_usize().unwrap()],
-            colidx: vec![I::zero(); nnz.to_usize().unwrap()],
-            data: vec![T::zero(); nnz.to_usize().unwrap()],
+            rowidx: Vec::with_capacity(nnz.to_usize().unwrap()),
+            colidx: Vec::with_capacity(nnz.to_usize().unwrap()),
+            data: Vec::with_capacity(nnz.to_usize().unwrap()),
         }
     }
 
@@ -102,13 +104,13 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         &self.data
     }
 
-    pub fn set(&mut self, row: I, col: I, v: T) {
+    pub fn push(&mut self, row: I, col: I, v: T) {
         self.rowidx.push(row);
         self.colidx.push(col);
         self.data.push(v);
     }
 
-    pub fn append(&mut self, row: &[I], col: &[I], v: &[T]) {
+    pub fn extend(&mut self, row: &[I], col: &[I], v: &[T]) {
         self.rowidx.extend(row);
         self.colidx.extend(col);
         self.data.extend(v);
@@ -225,18 +227,18 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
 
     /// Creates a coordinate matrix that is the transpose of the
     /// receiver. The underlying index and data slices are not copied.
-    pub fn transpose(&self) -> Coo<I, T> {
+    pub fn transpose(self) -> Coo<I, T> {
         Coo {
             rows: self.cols,
             cols: self.rows,
-            rowidx: self.colidx.clone(),
-            colidx: self.rowidx.clone(),
-            data: self.data.clone(),
+            rowidx: self.colidx,
+            colidx: self.rowidx,
+            data: self.data,
         }
     }
 
     /// An alias for `transpose`.
-    pub fn t(&self) -> Coo<I, T> {
+    pub fn t(self) -> Coo<I, T> {
         self.transpose()
     }
 
@@ -357,46 +359,6 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         d
     }
 
-    /// Creates a CSR matrix that is the element-wise sum of the
-    /// receiver and the given matrix.
-    pub fn add(&self, m: &Coo<I, T>) -> CSR<I, T> {
-        // if m == nil {
-        // 	return mat.ToCSR()
-        // }
-        let k = self.nnz();
-        let nnz = (k + m.nnz()).to_usize().unwrap();
-
-        // let rowidx = vec![I::zero(); nnz];
-        let mut rowidx = Vec::with_capacity(nnz);
-        // let colidx = vec![I::zero(); nnz];
-        let mut colidx = Vec::with_capacity(nnz);
-        // let data = vec![T::zero(); nnz];
-        let mut data = Vec::with_capacity(nnz);
-
-        // copy(rowidx, self.rowidx);
-        rowidx.extend(&self.rowidx);
-        // copy(colidx, self.colidx);
-        colidx.extend(&self.colidx);
-        // copy(data, self.data);
-        data.extend(&self.data);
-
-        // copy(rowidx[k..], m.rowidx);
-        rowidx.extend(&m.rowidx);
-        // copy(colidx[k..], m.colidx);
-        colidx.extend(&m.colidx);
-        // copy(data[k..], m.data);
-        data.extend(&m.data);
-
-        let a_mat = Coo {
-            rows: self.rows,
-            cols: self.cols,
-            rowidx,
-            colidx,
-            data,
-        };
-        a_mat.to_csr() // Duplicate entries are summed.
-    }
-
     pub fn to_string(&self) -> String {
         let mut buf: String = String::new();
         for i in 0..self.nnz().to_usize().unwrap() {
@@ -497,5 +459,19 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         let j1x = Coo::h_stack(j11, j12)?;
         let j2x = Coo::h_stack(j21, j22)?;
         Coo::v_stack(&j1x, &j2x)
+    }
+}
+
+impl<I: Integer, T: Scalar + Neg<Output = T>> Neg for Coo<I, T> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Coo {
+            rows: self.rows,
+            cols: self.cols,
+            rowidx: self.rowidx.clone(),
+            colidx: self.colidx.clone(),
+            data: self.data.iter().map(|&d| -d).collect(),
+        }
     }
 }
