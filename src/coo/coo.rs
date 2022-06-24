@@ -450,14 +450,9 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     ///       | J21 | J22 |
     ///        -----------
     /// An error is returned if the matrix dimensions do not match correctly.
-    pub fn compose(
-        j11: &Coo<I, T>,
-        j12: &Coo<I, T>,
-        j21: &Coo<I, T>,
-        j22: &Coo<I, T>,
-    ) -> Result<Coo<I, T>, String> {
-        let j1x = Coo::h_stack(j11, j12)?;
-        let j2x = Coo::h_stack(j21, j22)?;
+    pub fn compose(j: [[&Coo<I, T>; 2]; 2]) -> Result<Coo<I, T>, String> {
+        let j1x = Coo::h_stack(j[0][0], j[0][1])?;
+        let j2x = Coo::h_stack(j[1][0], j[1][1])?;
         Coo::v_stack(&j1x, &j2x)
     }
 }
