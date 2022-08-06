@@ -1,6 +1,7 @@
 use crate::csr::CSR;
 use crate::traits::{Integer, Scalar};
 use crate::{csr_add_csr, csr_sub_csr};
+use num_complex::Complex64;
 use std::ops::{Add, Mul, Sub};
 
 #[opimps::impl_ops(Add)]
@@ -76,6 +77,20 @@ fn mul<I: Integer, T: Scalar>(self: CSR<I, T>, rhs: T) -> CSR<I, T> {
         rowptr: self.rowptr.clone(),
         colidx: self.colidx.clone(),
         data: self.data.iter().map(|&v| v * rhs).collect::<Vec<T>>(),
+    }
+}
+#[opimps::impl_ops_lprim(Mul)]
+fn mul<I: Integer>(self: Complex64, rhs: CSR<I, Complex64>) -> CSR<I, Complex64> {
+    CSR {
+        rows: rhs.rows,
+        cols: rhs.cols,
+        rowptr: rhs.rowptr.clone(),
+        colidx: rhs.colidx.clone(),
+        data: rhs
+            .data
+            .iter()
+            .map(|&v| self * v)
+            .collect::<Vec<Complex64>>(),
     }
 }
 

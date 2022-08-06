@@ -50,6 +50,16 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         })
     }
 
+    pub fn zeros(rows: I, cols: I) -> Self {
+        Self {
+            rows,
+            cols,
+            rowptr: vec![I::zero(); rows.to_usize().unwrap() + 1], // fixme
+            colidx: vec![I::zero(); 0],
+            data: vec![T::zero(); 0],
+        }
+    }
+
     /// Creates a new CSR matrix with the given values on the main
     /// diagonal. The input is not copied.
     pub fn with_diag(data: Vec<T>) -> Self {

@@ -376,23 +376,37 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     /// Creates a new coordinate matrix by vertically stacking the
     /// given input matrices. The matrix arguments must have the same number
     /// of columns.
-    pub fn v_stack(a_mat: &Coo<I, T>, b_mat: &Coo<I, T>) -> Result<Coo<I, T>, String> {
+    pub fn v_stack(
+        a_mat: &Coo<I, T>,
+        b_mat: &Coo<I, T>,
+        c_mat: Option<&Coo<I, T>>,
+    ) -> Result<Coo<I, T>, String> {
         if a_mat.cols != b_mat.cols {
             return Err(format!("cols mismatch {} != {}", a_mat.cols, b_mat.cols));
         }
-
-        let mut shifted = vec![I::zero(); b_mat.rowidx.len()];
-        for (i, &r) in b_mat.rowidx.iter().enumerate() {
-            shifted[i] = r + a_mat.rows;
+        if let Some(c_mat) = c_mat {
+            if a_mat.cols != c_mat.cols {
+                return Err(format!("cols mismatch {} != {}", a_mat.cols, c_mat.cols));
+            }
         }
 
-        let rows = a_mat.rows + b_mat.rows;
+        // let mut shifted = vec![I::zero(); b_mat.rowidx.len()];
+        // for (i, &r) in b_mat.rowidx.iter().enumerate() {
+        //     shifted[i] = r + a_mat.rows;
+        // }
+
+        let mut rows = a_mat.rows + b_mat.rows;
         let cols = a_mat.cols;
-        let nnz = (a_mat.nnz() + b_mat.nnz()).to_usize().unwrap();
+        let mut nnz = (a_mat.nnz() + b_mat.nnz()).to_usize().unwrap();
+        if let Some(c_mat) = c_mat {
+            rows += c_mat.rows;
+            nnz += c_mat.nnz().to_usize().unwrap();
+        }
 
         let mut rowidx = Vec::with_capacity(nnz);
         rowidx.extend(&a_mat.rowidx);
-        rowidx.extend(&shifted);
+        // rowidx.extend(&shifted);
+        rowidx.extend(b_mat.rowidx.iter().map(|&r| r + a_mat.rows));
 
         let mut colidx = Vec::with_capacity(nnz);
         colidx.extend(&a_mat.colidx);
@@ -401,6 +415,12 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         let mut data = Vec::with_capacity(nnz);
         data.extend(&a_mat.data);
         data.extend(&b_mat.data);
+
+        if let Some(c_mat) = c_mat {
+            rowidx.extend(c_mat.rowidx.iter().map(|&r| r + a_mat.rows + b_mat.rows));
+            colidx.extend(&c_mat.colidx);
+            data.extend(&c_mat.data);
+        }
 
         Ok(Coo {
             rows,
@@ -414,19 +434,32 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     /// Creates a new coordinate matrix by horizontally stacking the
     /// given input matrices. The matrix arguments must have the same number
     /// of rows.
-    pub fn h_stack(a_mat: &Coo<I, T>, b_mat: &Coo<I, T>) -> Result<Coo<I, T>, String> {
+    pub fn h_stack(
+        a_mat: &Coo<I, T>,
+        b_mat: &Coo<I, T>,
+        c_mat: Option<&Coo<I, T>>,
+    ) -> Result<Coo<I, T>, String> {
         if a_mat.rows != b_mat.rows {
             return Err(format!("rows mismatch {} != {}", a_mat.rows, b_mat.rows));
         }
-
-        let mut shifted = vec![I::zero(); b_mat.colidx.len()];
-        for (i, &c) in b_mat.colidx.iter().enumerate() {
-            shifted[i] = shifted[i] + (c + a_mat.cols)
+        if let Some(c_mat) = c_mat {
+            if a_mat.rows != c_mat.rows {
+                return Err(format!("rows mismatch {} != {}", a_mat.rows, c_mat.rows));
+            }
         }
 
+        // let mut shifted = vec![I::zero(); b_mat.colidx.len()];
+        // for (i, &c) in b_mat.colidx.iter().enumerate() {
+        //     shifted[i] = shifted[i] + (c + a_mat.cols)
+        // }
+
         let rows = a_mat.rows;
-        let cols = a_mat.cols + b_mat.cols;
-        let nnz = (a_mat.nnz() + b_mat.nnz()).to_usize().unwrap();
+        let mut cols = a_mat.cols + b_mat.cols;
+        let mut nnz = (a_mat.nnz() + b_mat.nnz()).to_usize().unwrap();
+        if let Some(c_mat) = c_mat {
+            cols += c_mat.cols;
+            nnz += c_mat.nnz().to_usize().unwrap();
+        }
 
         let mut rowidx = Vec::with_capacity(nnz);
         rowidx.extend(&a_mat.rowidx);
@@ -434,26 +467,53 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
 
         let mut colidx = Vec::with_capacity(nnz);
         colidx.extend(&a_mat.colidx);
-        colidx.extend(shifted);
+        // colidx.extend(shifted);
+        colidx.extend(b_mat.colidx.iter().map(|&c| c + a_mat.cols));
 
         let mut data = Vec::with_capacity(nnz);
         data.extend(&a_mat.data);
         data.extend(&b_mat.data);
 
+        if let Some(c_mat) = c_mat {
+            rowidx.extend(&c_mat.rowidx);
+            colidx.extend(c_mat.colidx.iter().map(|&c| c + b_mat.cols + a_mat.cols));
+            data.extend(&c_mat.data);
+        }
+
         Coo::new(rows, cols, rowidx, colidx, data)
     }
 
     /// Assembles a matrix from four sub-matrices using HStackCoo and VStackCoo.
-    ///        -----------
-    ///       | J11 | J12 |
-    ///   J = |-----------|
-    ///       | J21 | J22 |
-    ///        -----------
+    ///
+    ///          -----------
+    ///         | J11 | J12 |
+    ///     J = |-----------|
+    ///         | J21 | J22 |
+    ///          -----------
+    ///
     /// An error is returned if the matrix dimensions do not match correctly.
     pub fn compose(j: [[&Coo<I, T>; 2]; 2]) -> Result<Coo<I, T>, String> {
-        let j1x = Coo::h_stack(j[0][0], j[0][1])?;
-        let j2x = Coo::h_stack(j[1][0], j[1][1])?;
-        Coo::v_stack(&j1x, &j2x)
+        let j1x = Coo::h_stack(j[0][0], j[0][1], None)?;
+        let j2x = Coo::h_stack(j[1][0], j[1][1], None)?;
+        Coo::v_stack(&j1x, &j2x, None)
+    }
+
+    /// Assembles a matrix from four sub-matrices using HStackCoo and VStackCoo.
+    ///
+    ///          -----------------
+    ///         | J11 | J12 | J13 |
+    ///         |-----------|-----|
+    ///     J = | J21 | J22 | J23 |
+    ///         |-----------------|
+    ///         | J31 | J32 | J33 |
+    ///          -----------------
+    ///
+    /// An error is returned if the matrix dimensions do not match correctly.
+    pub fn compose3(j: [[&Coo<I, T>; 3]; 3]) -> Result<Coo<I, T>, String> {
+        let j1x = Coo::h_stack(j[0][0], j[0][1], Some(j[0][2]))?;
+        let j2x = Coo::h_stack(j[1][0], j[1][1], Some(j[1][2]))?;
+        let j3x = Coo::h_stack(j[2][0], j[2][1], Some(j[2][2]))?;
+        Coo::v_stack(&j1x, &j2x, Some(&j3x))
     }
 }
 

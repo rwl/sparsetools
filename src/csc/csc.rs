@@ -510,10 +510,10 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         let j21coo = j21.to_coo();
         let j22coo = j22.to_coo();
 
-        let j1x = Coo::h_stack(&j11coo, &j12coo)?;
-        let j2x = Coo::h_stack(&j21coo, &j22coo)?;
+        let j1x = Coo::h_stack(&j11coo, &j12coo, None)?;
+        let j2x = Coo::h_stack(&j21coo, &j22coo, None)?;
 
-        let j = Coo::v_stack(&j1x, &j2x)?;
+        let j = Coo::v_stack(&j1x, &j2x, None)?;
 
         Ok(j.to_csc())
     }

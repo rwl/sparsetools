@@ -15,7 +15,7 @@ pub(crate) fn diagonal() -> Vec<f64> {
 pub(crate) fn c_diagonal() -> Vec<Complex<f64>> {
     to_complex(&diagonal())
 }
-
+/*
 pub(crate) fn dense_data() -> Vec<Vec<f64>> {
     vec![
         vec![11.0, 0.0, 0.0, 0.0],
@@ -33,7 +33,7 @@ pub(crate) fn c_dense_data() -> Vec<Vec<Complex<f64>>> {
     }
     c
 }
-
+*/
 pub(crate) fn coo_data() -> (Vec<usize>, Vec<usize>, Vec<f64>) {
     let rowidx = vec![0, 1, 3, 1, 2, 2, 3, 3];
     let colidx = vec![0, 0, 0, 1, 1, 2, 2, 3];
@@ -47,7 +47,7 @@ pub(crate) fn csr_data() -> (Vec<usize>, Vec<usize>, Vec<f64>) {
     let data = vec![11.0, 21.0, 22.0, 32.0, 33.0, 41.0, 43.0, 44.0];
     (rowptr, colidx, data)
 }
-
+/*
 pub(crate) fn csc_data() -> (Vec<usize>, Vec<usize>, Vec<f64>) {
     let rowidx = vec![0, 1, 3, 1, 2, 2, 3, 3];
     let colptr = vec![0, 3, 5, 7, 8];
@@ -59,17 +59,17 @@ pub(crate) fn c_coo_data() -> (Vec<usize>, Vec<usize>, Vec<Complex<f64>>) {
     let (rowidx, colidx, data) = coo_data();
     (rowidx, colidx, to_complex(&data))
 }
-
+*/
 pub(crate) fn c_csr_data() -> (Vec<usize>, Vec<usize>, Vec<Complex<f64>>) {
     let (rowptr, colidx, data) = csr_data();
     (rowptr, colidx, to_complex(&data))
 }
-
+/*
 pub(crate) fn c_csc_data() -> (Vec<usize>, Vec<usize>, Vec<Complex<f64>>) {
     let (rowidx, colptr, data) = csc_data();
     (rowidx, colptr, to_complex(&data))
 }
-
+*/
 fn to_complex(floats: &[f64]) -> Vec<Complex<f64>> {
     floats.iter().map(|&f| Complex::new(f, 0.0)).collect()
 }
