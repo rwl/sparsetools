@@ -1,9 +1,7 @@
 use pretty_dtoa::{dtoa, FmtFloatConfig};
 use std::{fmt, ops};
 
-const DEFAULT_FLOAT_CONFIG: FmtFloatConfig = FmtFloatConfig::default()
-    .add_point_zero(false)
-    .max_significant_digits(6);
+use crate::util::DEFAULT_FLOAT_CONFIG;
 
 pub trait Integer:
     num_traits::PrimInt + ops::AddAssign + ops::SubAssign + fmt::Display + fmt::Debug
@@ -11,7 +9,18 @@ pub trait Integer:
 }
 
 impl Integer for usize {}
+impl Integer for u8 {}
+impl Integer for u16 {}
+impl Integer for u32 {}
+impl Integer for u64 {}
+impl Integer for u128 {}
+
 impl Integer for isize {}
+impl Integer for i8 {}
+impl Integer for i16 {}
+impl Integer for i32 {}
+impl Integer for i64 {}
+impl Integer for i128 {}
 
 pub trait Float: Scalar {}
 
@@ -60,6 +69,7 @@ pub trait Scalar<Output = Self>:
     + ops::Sub<Output = Self>
     + ops::Mul<Output = Self>
     + ops::Div<Output = Self>
+    + ops::Neg<Output = Self>
     + ops::AddAssign
     + ops::SubAssign
     + ops::MulAssign

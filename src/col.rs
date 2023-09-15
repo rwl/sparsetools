@@ -1,35 +1,38 @@
-use crate::dense::axpy;
 use crate::traits::{Integer, Scalar};
+use crate::util::axpy;
 use crate::{csr_diagonal, csr_matmat, csr_matmat_maxnnz, csr_tocsc};
 
 /// Compute Y += A*X for CSC matrix A and dense vectors X,Y
 ///
-///
-/// Input Arguments:
+/// # Input Arguments
+/// ```txt
 ///   I  n_row         - number of rows in A
 ///   I  n_col         - number of columns in A
 ///   I  Ap[n_row+1]   - column pointer
 ///   I  Ai[nnz(A)]    - row indices
 ///   T  Ax[n_col]     - nonzeros
 ///   T  Xx[n_col]     - input vector
-///
-/// Output Arguments:
+/// ```
+/// # Output Arguments
+/// ```txt
 ///   T  Yx[n_row]     - output vector
+/// ```
 ///
-/// Note:
-///   Output array Yx must be preallocated
+/// # Notes
 ///
-///   Complexity: Linear.  Specifically O(nnz(A) + n_col)
+/// Output array Yx must be preallocated
+///
+/// Complexity: Linear. Specifically O(nnz(A) + n_col)
 pub fn csc_matvec<I: Integer, T: Scalar>(
-    _n_row: I,
-    n_col: I,
+    _n_row: usize,
+    n_col: usize,
     a_p: &[I],
     a_i: &[I],
     a_x: &[T],
     x_x: &[T],
     y_x: &mut [T],
 ) {
-    for j in 0..n_col.to_usize().unwrap() {
+    for j in 0..n_col {
         let col_start = a_p[j].to_usize().unwrap();
         let col_end = a_p[j + 1].to_usize().unwrap();
 
@@ -42,8 +45,8 @@ pub fn csc_matvec<I: Integer, T: Scalar>(
 
 /// Compute Y += A*X for CSC matrix A and dense block vectors X,Y
 ///
-///
-/// Input Arguments:
+/// # Input Arguments
+/// ```txt
 ///   I  n_row            - number of rows in A
 ///   I  n_col            - number of columns in A
 ///   I  n_vecs           - number of column vectors in X and Y
@@ -51,23 +54,26 @@ pub fn csc_matvec<I: Integer, T: Scalar>(
 ///   I  Aj[nnz(A)]       - column indices
 ///   T  Ax[nnz(A)]       - nonzeros
 ///   T  Xx[n_col,n_vecs] - input vector
-///
-/// Output Arguments:
+/// ```
+/// # Output Arguments
+/// ```txt
 ///   T  Yx[n_row,n_vecs] - output vector
+/// ```
 ///
-/// Note:
-///   Output array Yx must be preallocated
+/// # Notes
+///
+/// Output array Yx must be preallocated.
 pub fn csc_matvecs<I: Integer, T: Scalar>(
-    _n_row: I,
-    n_col: I,
-    n_vecs: I,
+    _n_row: usize,
+    n_col: usize,
+    n_vecs: usize,
     a_p: &[I],
     a_i: &[I],
     a_x: &[T],
     x_x: &[T],
     y_x: &mut [T],
 ) {
-    for j in 0..n_col.to_usize().unwrap() {
+    for j in 0..n_col {
         let start = a_p[j].to_usize().unwrap();
         let end = a_p[j + 1].to_usize().unwrap();
         for ii in start..end {
@@ -76,9 +82,9 @@ pub fn csc_matvecs<I: Integer, T: Scalar>(
                 n_vecs,
                 a_x[ii],
                 // Xx + /*(npy_intp)*/n_vecs * j,
-                &x_x[(n_vecs.to_usize().unwrap() * j)..],
+                &x_x[(n_vecs * j)..],
                 // Yx + /*(npy_intp)*/n_vecs * i,
-                &mut y_x[(n_vecs.to_usize().unwrap() * i)..],
+                &mut y_x[(n_vecs * i)..],
             );
         }
     }
@@ -88,8 +94,8 @@ pub fn csc_matvecs<I: Integer, T: Scalar>(
 
 pub fn csc_diagonal<I: Integer, T: Scalar>(
     k: isize,
-    n_row: I,
-    n_col: I,
+    n_row: usize,
+    n_col: usize,
     a_p: &[I],
     a_j: &[I],
     a_x: &[T],
@@ -99,8 +105,8 @@ pub fn csc_diagonal<I: Integer, T: Scalar>(
 }
 
 pub fn csc_tocsr<I: Integer, T: Scalar>(
-    n_row: I,
-    n_col: I,
+    n_row: usize,
+    n_col: usize,
     a_p: &[I],
     a_i: &[I],
     a_x: &[T],
@@ -112,8 +118,8 @@ pub fn csc_tocsr<I: Integer, T: Scalar>(
 }
 
 pub fn csc_matmat_maxnnz<I: Integer>(
-    n_row: I,
-    n_col: I,
+    n_row: usize,
+    n_col: usize,
     a_p: &[I],
     a_i: &[I],
     b_p: &[I],
@@ -124,8 +130,8 @@ pub fn csc_matmat_maxnnz<I: Integer>(
 }
 
 pub fn csc_matmat<I: Integer, T: Scalar>(
-    n_row: I,
-    n_col: I,
+    n_row: usize,
+    n_col: usize,
     a_p: &[I],
     a_i: &[I],
     a_x: &[T],

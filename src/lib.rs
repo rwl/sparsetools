@@ -2,13 +2,7 @@ extern crate core;
 
 mod col;
 mod coord;
-mod dense;
-mod diag;
-mod graph;
 mod row;
-mod string;
-#[cfg(test)]
-mod test;
 mod traits;
 mod util;
 
@@ -16,10 +10,21 @@ pub mod coo;
 pub mod csc;
 pub mod csr;
 pub mod dok;
+pub mod graph;
+
+#[cfg(test)]
+mod test;
 
 pub use col::*;
 pub use coord::*;
-pub use diag::*;
 pub use row::*;
-// pub use scalar::*;
-pub use util::*;
+pub use traits::*;
+
+// mod coo;
+// mod csc;
+// mod csr;
+// mod dok;
+// pub use coo::*;
+// pub use csc::*;
+// pub use csr::*;
+// pub use dok::*;

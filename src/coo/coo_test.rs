@@ -1,129 +1,150 @@
 use crate::coo::Coo;
 use crate::test;
+use anyhow::{format_err, Result};
 
 #[test]
-fn test_new() -> Result<(), String> {
+fn test_new() -> Result<()> {
     let (rowidx, colidx, data) = test::coo_data();
     let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
     if coo.rows() != test::N {
-        return Err(format!("rows, expected {} actual {}", test::N, coo.rows()));
+        return Err(format_err!(
+            "rows, expected {} actual {}",
+            test::N,
+            coo.rows()
+        ));
     }
     if coo.cols() != test::N {
-        return Err(format!("cols, expected {} actual {}", test::N, coo.cols()));
+        return Err(format_err!(
+            "cols, expected {} actual {}",
+            test::N,
+            coo.cols()
+        ));
     }
     if coo.nnz() != test::NNZ {
-        return Err(format!("nnz, expected {} actual {}", test::NNZ, coo.nnz()));
+        return Err(format_err!(
+            "nnz, expected {} actual {}",
+            test::NNZ,
+            coo.nnz()
+        ));
     }
-    let diag = test::diagonal();
-    for (i, d) in coo.diagonal().into_iter().enumerate() {
-        if d != diag[i] {
-            return Err(format!("diagonal {}, expected {} actual {}", i, diag[i], d));
-        }
-    }
+
+    test::assert_slice(&coo.diagonal(), &test::diagonal())?;
+
     Ok(())
 }
 
 #[test]
-fn test_empty() -> Result<(), String> {
-    let coo = Coo::<usize, f64>::empty(test::N, test::N, test::NNZ);
+fn test_empty() -> Result<()> {
+    let coo = Coo::<usize, f64>::with_size(test::N, test::N);
     if coo.rows() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "empty rows, expected {} actual {}",
             test::N,
             coo.rows()
         ));
     }
     if coo.cols() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "empty cols, expected {} actual {}",
             test::N,
             coo.cols()
         ));
     }
     if coo.nnz() != 0 {
-        return Err(format!("empty nnz, expected {} actual {}", 0, coo.nnz()));
+        return Err(format_err!(
+            "empty nnz, expected {} actual {}",
+            0,
+            coo.nnz()
+        ));
     }
+
+    test::assert_slice(&coo.diagonal(), &vec![0.0; test::N])?;
+
     Ok(())
 }
 
 #[test]
-fn test_identity() -> Result<(), String> {
+fn test_identity() -> Result<()> {
     let eye = Coo::<usize, f64>::identity(test::N);
 
     if eye.rows() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "eye rows, expected {} actual {}",
             test::N,
             eye.rows()
         ));
     }
     if eye.cols() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "eye cols, expected {} actual {}",
             test::N,
             eye.cols()
         ));
     }
     if eye.nnz() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "eye nnz, expected {} actual {}",
             test::N,
             eye.nnz()
         ));
     }
-    for (i, v) in eye.diagonal().into_iter().enumerate() {
-        if v != 1.0 {
-            return Err(format!("eye {}, expected {} actual {}", i, 1.0, v));
-        }
-    }
+
+    test::assert_slice(&eye.diagonal(), &vec![1.0; test::N])?;
+
     Ok(())
 }
 
 #[test]
-fn test_with_diagonal() -> Result<(), String> {
+fn test_with_diagonal() -> Result<()> {
     let diagonal = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
     let n = diagonal.len();
 
     let coo = Coo::<usize, f64>::with_diagonal(&diagonal);
 
     if coo.rows() != n {
-        return Err(format!("diag rows, expected {} actual {}", n, coo.rows()));
+        return Err(format_err!(
+            "diag rows, expected {} actual {}",
+            n,
+            coo.rows()
+        ));
     }
     if coo.cols() != n {
-        return Err(format!("diag cols, expected {} actual {}", n, coo.cols()));
+        return Err(format_err!(
+            "diag cols, expected {} actual {}",
+            n,
+            coo.cols()
+        ));
     }
     if coo.nnz() != n {
-        return Err(format!("diag nnz, expected {} actual {}", n, coo.nnz()));
+        return Err(format_err!("diag nnz, expected {} actual {}", n, coo.nnz()));
     }
-    for (i, v) in coo.diagonal().into_iter().enumerate() {
-        if v != diagonal[i] {
-            return Err(format!("diag {}, expected {} actual {}", i, diagonal[i], v));
-        }
-    }
+
+    test::assert_slice(&coo.diagonal(), &diagonal)?;
+
     Ok(())
 }
 
 #[test]
-fn test_transpose() -> Result<(), String> {
+fn test_transpose() -> Result<()> {
     let (rowidx, colidx, data) = test::coo_data();
     let coo0 = Coo::new(test::N, test::N, rowidx, colidx, data)?;
     let coo = coo0.transpose();
     if coo.rows() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "transpose rows, expected {} actual {}",
             test::N,
             coo.rows()
         ));
     }
     if coo.cols() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "transpose cols, expected {} actual {}",
             test::N,
             coo.cols()
         ));
     }
     if coo.nnz() != test::NNZ {
-        return Err(format!(
+        return Err(format_err!(
             "transpose nnz, expected {} actual {}",
             test::NNZ,
             coo.nnz()
@@ -131,16 +152,19 @@ fn test_transpose() -> Result<(), String> {
     }
     let dense = coo.to_dense();
     if dense[1][2] != 32.0 {
-        return Err(format!(
+        return Err(format_err!(
             "dense[{}][{}], expected {} actual {}",
-            1, 2, 32.0, dense[1][2]
+            1,
+            2,
+            32.0,
+            dense[1][2]
         ));
     }
     Ok(())
 }
 
 #[test]
-fn test_add() -> Result<(), String> {
+fn test_add() -> Result<()> {
     let (rowidx, colidx, data) = test::coo_data();
     let coo1 = Coo::new(
         test::N,
@@ -154,14 +178,14 @@ fn test_add() -> Result<(), String> {
     let csr = coo1 + coo2.t();
 
     if csr.rows() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "add rows, expected {} actual {}",
             test::N,
             csr.rows()
         ));
     }
     if csr.cols() != test::N {
-        return Err(format!(
+        return Err(format_err!(
             "add cols, expected {} actual {}",
             test::N,
             csr.cols()
@@ -170,7 +194,7 @@ fn test_add() -> Result<(), String> {
     let diag = test::diagonal();
     for (i, v) in csr.diagonal().into_iter().enumerate() {
         if v != diag[i] + diag[i] {
-            return Err(format!(
+            return Err(format_err!(
                 "diag {}, expected {} actual {}",
                 i,
                 diag[i] + diag[i],
@@ -180,34 +204,132 @@ fn test_add() -> Result<(), String> {
     }
     let dense = csr.to_dense();
     if dense[1][2] != 32.0 {
-        return Err(format!(
+        return Err(format_err!(
             "dense[{}][{}], expected {} actual {}",
-            1, 2, 32.0, dense[1][2]
+            1,
+            2,
+            32.0,
+            dense[1][2]
         ));
     }
     Ok(())
 }
 
 #[test]
-fn test_to_dense() -> Result<(), String> {
+fn test_to_dense() -> Result<()> {
     let (rowidx, colidx, data) = test::coo_data();
     let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
 
-    let dense = coo.to_dense();
+    test::assert_dense(&coo.to_dense(), &test::dense_data())?;
+    Ok(())
+}
 
-    if dense.len() != test::N {
-        return Err(format!("rows, expected {} actual {}", test::N, dense.len()));
-    }
-    for row in &dense {
-        if row.len() != test::N {
-            return Err(format!("cols, expected {} actual {}", test::N, row.len()));
-        }
-    }
-    if dense[2][1] != 32.0 {
-        return Err(format!(
-            "dense[{}][{}], expected {} actual {}",
-            2, 1, 32.0, dense[2][1]
+#[test]
+fn test_to_csc() -> Result<()> {
+    let (rowidx, colidx, data) = test::coo_data();
+    let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let csc = coo.to_csc();
+
+    if csc.rows() != test::N {
+        return Err(format_err!(
+            "to_csc rows, expected {} actual {}",
+            test::N,
+            csc.rows()
         ));
     }
+    if csc.cols() != test::N {
+        return Err(format_err!(
+            "to_csc cols, expected {} actual {}",
+            test::N,
+            csc.cols()
+        ));
+    }
+
+    let (rowidx, colptr, data) = test::csc_data();
+    test::assert_slice(&csc.rowidx(), &rowidx)?;
+    test::assert_slice(&csc.colptr(), &colptr)?;
+    test::assert_slice(&csc.data(), &data)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_to_csr_sum_duplicates() -> Result<()> {
+    let (rowidx0, colidx0, data0) = test::coo_data();
+
+    let rowidx = [rowidx0.clone(), rowidx0.clone()].concat();
+    let colidx = [colidx0.clone(), colidx0.clone()].concat();
+    let data = [data0.clone(), data0.clone()].concat();
+
+    let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let csr = coo.to_csr();
+
+    if csr.rows() != test::N {
+        return Err(format_err!(
+            "rows, expected {} actual {}",
+            test::N,
+            csr.rows()
+        ));
+    }
+    if csr.cols() != test::N {
+        return Err(format_err!(
+            "cols, expected {} actual {}",
+            test::N,
+            csr.cols()
+        ));
+    }
+    if csr.nnz() != test::NNZ {
+        return Err(format_err!(
+            "nnz, expected {} actual {}",
+            test::NNZ,
+            csr.nnz()
+        ));
+    }
+
+    test::assert_dense(
+        &csr.to_dense(),
+        &test::dense_data()
+            .iter()
+            .map(|row| row.iter().map(|&v| v + v).collect())
+            .collect(),
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn test_v_stack() -> Result<()> {
+    let (rowidx1, colidx1, data1) = test::coo_data();
+    let coo1 = Coo::new(test::N, test::N, rowidx1, colidx1, data1)?;
+
+    let (rowidx2, colidx2, data2) = test::coo_data();
+    let coo2 = Coo::new(test::N, test::N, rowidx2, colidx2, data2)?;
+
+    let coo = Coo::v_stack(&coo1, &coo2)?;
+
+    test::assert_dense(
+        &coo.to_dense(),
+        &[test::dense_data(), test::dense_data()].concat(),
+    )?;
+    Ok(())
+}
+
+#[test]
+fn test_h_stack() -> Result<()> {
+    let (rowidx1, colidx1, data1) = test::coo_data();
+    let coo1 = Coo::new(test::N, test::N, rowidx1, colidx1, data1)?;
+
+    let (rowidx2, colidx2, data2) = test::coo_data();
+    let coo2 = Coo::new(test::N, test::N, rowidx2, colidx2, data2)?;
+
+    let coo = Coo::h_stack(&coo1, &coo2)?;
+
+    test::assert_dense(
+        &coo.to_dense(),
+        &test::dense_data()
+            .iter()
+            .map(|row| [row.clone(), row.clone()].concat())
+            .collect(),
+    )?;
     Ok(())
 }

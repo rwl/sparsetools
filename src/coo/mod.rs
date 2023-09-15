@@ -1,7 +1,6 @@
 mod ccoo;
 mod coo;
-
-pub mod add;
+mod std_ops;
 
 #[cfg(test)]
 mod coo_test;

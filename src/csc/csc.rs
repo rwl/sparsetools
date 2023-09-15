@@ -1,41 +1,43 @@
-use crate::col::{csc_matmat, csc_matmat_maxnnz, csc_matvec, csc_tocsr};
+use crate::col::{csc_matmat, csc_matmat_maxnnz, csc_matvec};
 use crate::coo::Coo;
 use crate::csr::CSR;
+use crate::csr_tocsc;
 use crate::row::{
     csr_add_csr, csr_diagonal, csr_has_canonical_format, csr_has_sorted_indices, csr_select,
     csr_sort_indices, csr_sub_csr, csr_sum_duplicates, csr_tocoo,
 };
 use crate::traits::{Integer, Scalar};
+use anyhow::{format_err, Result};
 use std::cmp::min;
 
 /// A sparse matrix with scalar values stored in Compressed Sparse Column (CSC) format.
 pub struct CSC<I, T> {
-    pub(crate) rows: I,
-    pub(crate) cols: I,
-    pub(crate) rowidx: Vec<I>,
-    pub(crate) colptr: Vec<I>,
-    pub(crate) data: Vec<T>,
+    rows: usize,
+    cols: usize,
+    pub(super) rowidx: Vec<I>,
+    pub(super) colptr: Vec<I>,
+    pub(super) data: Vec<T>,
 }
 
 impl<I: Integer, T: Scalar> CSC<I, T> {
     /// Creates a new CSC matrix. Inputs are not copied. An error
     /// is returned if the slice arguments do not have the correct length.
     pub fn new(
-        rows: I,
-        cols: I,
+        rows: usize,
+        cols: usize,
         rowidx: Vec<I>,
         colptr: Vec<I>,
         data: Vec<T>,
-    ) -> Result<Self, String> {
-        if colptr.len() != cols.to_usize().unwrap() + 1 {
-            return Err("colptr has invalid length".to_string());
+    ) -> Result<Self> {
+        if colptr.len() != cols + 1 {
+            return Err(format_err!("colptr has invalid length"));
         }
         let nnz = colptr[colptr.len() - 1].to_usize().unwrap();
         if rowidx.len() < nnz {
-            return Err("rowidx array has fewer than nnz elements".to_string());
+            return Err(format_err!("rowidx array has fewer than nnz elements"));
         }
         if data.len() < nnz {
-            return Err("data array has fewer than nnz elements".to_string());
+            return Err(format_err!("data array has fewer than nnz elements"));
         }
         Ok(Self {
             rows,
@@ -48,7 +50,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
     /// Creates a new CSC matrix with the given values on the main
     /// diagonal. The input is not copied.
-    pub fn from_diag(data: Vec<T>) -> Self {
+    pub fn with_diagonal(data: Vec<T>) -> Self {
         let n = data.len();
         let mut rowidx = vec![I::zero(); n];
         for i in 0..rowidx.len() {
@@ -59,8 +61,8 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             colptr[i] = I::from(i).unwrap();
         }
         Self {
-            rows: I::from(n).unwrap(),
-            cols: I::from(n).unwrap(),
+            rows: n,
+            cols: n,
             rowidx,
             colptr,
             data,
@@ -68,12 +70,12 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     }
 
     /// Number of rows.
-    pub fn rows(&self) -> I {
+    pub fn rows(&self) -> usize {
         self.rows
     }
 
     /// Number of columns.
-    pub fn cols(&self) -> I {
+    pub fn cols(&self) -> usize {
         self.cols
     }
 
@@ -92,48 +94,49 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         &self.data
     }
 
-    pub fn shape(&self) -> (I, I) {
+    pub fn shape(&self) -> (usize, usize) {
         (self.rows, self.cols)
     }
 
     /// Returns the count of explicitly stored values (nonzeros).
-    pub fn nnz(&self) -> I {
+    pub fn nnz(&self) -> usize {
         if self.colptr.len() == 0 {
-            I::zero()
+            0
         } else {
-            self.colptr[self.colptr.len() - 1]
+            self.colptr[self.colptr.len() - 1].to_usize().unwrap()
         }
     }
 
-    /// Copy creates an identical CSC matrix with newly allocated
-    /// index, pointer and data slices.
-    pub fn copy(&self) -> CSC<I, T> {
-        // let rowidx = vec!(I::zero(); self.rowidx.len());
-        // let colptr = vec!(I::zero(); self.colptr.len());
-        // let data = vec!(T::zero(); self.data.len());
-        // copy(rowidx, self.rowidx);
-        // copy(colptr, self.colptr);
-        // copy(data, self.data);
-
-        CSC {
-            rows: self.rows,
-            cols: self.cols,
-            rowidx: self.rowidx.clone(),
-            colptr: self.colptr.clone(),
-            data: self.data.clone(),
-        }
-    }
+    //     /// Copy creates an identical CSC matrix with newly allocated
+    //     /// index, pointer and data slices.
+    //     pub fn copy(&self) -> CSC<I, T> {
+    //         // let rowidx = vec!(I::zero(); self.rowidx.len());
+    //         // let colptr = vec!(I::zero(); self.colptr.len());
+    //         // let data = vec!(T::zero(); self.data.len());
+    //         // copy(rowidx, self.rowidx);
+    //         // copy(colptr, self.colptr);
+    //         // copy(data, self.data);
+    //
+    //         CSC {
+    //             rows: self.rows,
+    //             cols: self.cols,
+    //             rowidx: self.rowidx.clone(),
+    //             colptr: self.colptr.clone(),
+    //             data: self.data.clone(),
+    //         }
+    //     }
 
     /// Transpose creates a CSR matrix that is the transpose of the
     /// receiver.
     pub fn transpose(&self) -> CSR<I, T> {
-        CSR {
-            rows: self.cols,
-            cols: self.rows,
-            rowptr: self.colptr.clone(),
-            colidx: self.rowidx.clone(),
-            data: self.data.clone(),
-        }
+        CSR::new(
+            self.cols,
+            self.rows,
+            self.colptr.clone(),
+            self.rowidx.clone(),
+            self.data.clone(),
+        )
+        .unwrap()
     }
 
     /// An alias for Transpose.
@@ -143,26 +146,18 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
     /// Returns true if the matrix has sorted indexes and no duplicates.
     pub fn has_canonical_format(&self) -> bool {
-        csr_has_canonical_format::<I>(
-            I::from(self.colptr.len() - 1).unwrap(),
-            &self.colptr,
-            &self.rowidx,
-        )
+        csr_has_canonical_format::<I>(self.colptr.len() - 1, &self.colptr, &self.rowidx)
     }
 
     /// Returns true if the indexes of the matrix are in sorted order.
     pub fn has_sorted_indexes(&self) -> bool {
-        csr_has_sorted_indices::<I>(
-            I::from(self.colptr.len() - 1).unwrap(),
-            &self.colptr,
-            &self.rowidx,
-        )
+        csr_has_sorted_indices::<I>(self.colptr.len() - 1, &self.colptr, &self.rowidx)
     }
 
     /// Sorts the indexes of this matrix in place.
     pub fn sort_indexes(&mut self) {
         csr_sort_indices::<I, T>(
-            I::from(self.colptr.len() - 1).unwrap(),
+            self.colptr.len() - 1,
             &self.colptr,
             &mut self.rowidx,
             &mut self.data,
@@ -188,16 +183,16 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     }
 
     /// Removes empty space after all non-zero elements.
-    pub fn prune(&mut self) -> Result<(), String> {
-        if self.colptr.len() != self.cols.to_usize().unwrap() + 1 {
-            return Err("index pointer has invalid length".to_string());
+    pub fn prune(&mut self) -> Result<()> {
+        if self.colptr.len() != self.cols + 1 {
+            return Err(format_err!("index pointer has invalid length"));
         }
-        let nnz = self.nnz().to_usize().unwrap();
+        let nnz = self.nnz();
         if self.rowidx.len() < nnz {
-            return Err("indexes array has fewer than nnz elements".to_string());
+            return Err(format_err!("indexes array has fewer than nnz elements"));
         }
         if self.data.len() < nnz {
-            return Err("data array has fewer than nnz elements".to_string());
+            return Err(format_err!("data array has fewer than nnz elements"));
         }
 
         self.data = self.data[..nnz].to_owned();
@@ -207,11 +202,15 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
     /// Performs matrix-vector multiplication. The length of x must be equal
     /// to the number of columns of the receiver.
-    pub fn mat_vec(&self, x: &[T]) -> Result<Vec<T>, String> {
-        if x.len() != self.cols.to_usize().unwrap() {
-            return Err(format!("len(x) ({}) != mat.cols ({})", x.len(), self.cols));
+    pub fn mat_vec(&self, x: &[T]) -> Result<Vec<T>> {
+        if x.len() != self.cols {
+            return Err(format_err!(
+                "len(x) ({}) != mat.cols ({})",
+                x.len(),
+                self.cols
+            ));
         }
-        let mut result = vec![T::zero(); self.rows.to_usize().unwrap()];
+        let mut result = vec![T::zero(); self.rows];
         csc_matvec(
             self.rows,
             self.cols,
@@ -226,11 +225,12 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
     /// Performs matrix-matrix multiplication. The number of rows of x
     /// must equal the number of columns of the receiver.
-    pub fn mat_mat(&self, x: &CSC<I, T>) -> Result<CSC<I, T>, String> {
+    pub fn mat_mat(&self, x: &CSC<I, T>) -> Result<CSC<I, T>> {
         if x.rows != self.cols {
-            return Err(format!(
+            return Err(format_err!(
                 "dimension mismatch, rows {} cols {}",
-                x.rows, self.cols
+                x.rows,
+                self.cols
             ));
         }
         let rows = self.rows;
@@ -241,7 +241,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
         // let nnz = colptr[cols];
 
-        let mut colptr = vec![I::zero(); cols.to_usize().unwrap() + 1];
+        let mut colptr = vec![I::zero(); cols + 1];
         let mut rowidx = vec![I::zero(); nnz];
         let mut data = vec![T::zero(); nnz];
 
@@ -264,16 +264,16 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     }
 
     /// Creates a new CSC matrix with only the selected rows and columns of the receiver.
-    pub fn select(&self, rowidx: Option<&[I]>, colidx: Option<&[I]>) -> Result<CSC<I, T>, String> {
+    pub fn select(&self, rowidx: Option<&[I]>, colidx: Option<&[I]>) -> Result<CSC<I, T>> {
         if !self.has_canonical_format() {
             // self.sum_duplicates();
-            return Err("must have canonical form, sum_duplicates".to_string());
+            return Err(format_err!("must have canonical form, sum_duplicates"));
         }
 
         let mut rowidx_full = Vec::new();
         let rowidx = match rowidx {
             None => {
-                rowidx_full.resize(self.rows.to_usize().unwrap(), I::zero());
+                rowidx_full.resize(self.rows, I::zero());
                 for i in 0..rowidx_full.len() {
                     rowidx_full[i] = I::from(i).unwrap();
                 }
@@ -281,8 +281,8 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             }
             Some(rowidx) => {
                 for &ri in rowidx {
-                    if ri < I::zero() || ri >= self.rows {
-                        return Err(format!("out of range: {}", ri));
+                    if ri < I::zero() || ri >= I::from(self.rows).unwrap() {
+                        return Err(format_err!("out of range: {}", ri));
                     }
                 }
                 rowidx
@@ -292,7 +292,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         let mut colidx_full = Vec::new();
         let colidx = match colidx {
             None => {
-                colidx_full.resize(self.cols.to_usize().unwrap(), I::zero());
+                colidx_full.resize(self.cols, I::zero());
                 for i in 0..colidx_full.len() {
                     colidx_full[i] = I::from(i).unwrap();
                 }
@@ -300,8 +300,8 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             }
             Some(colidx) => {
                 for &ci in colidx {
-                    if ci < I::zero() || ci >= self.cols {
-                        return Err(format!("out of range: {}", ci));
+                    if ci < I::zero() || ci >= I::from(self.cols).unwrap() {
+                        return Err(format_err!("out of range: {}", ci));
                     }
                 }
                 colidx
@@ -326,8 +326,8 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         );
 
         Ok(CSC {
-            rows: I::from(rowidx.len()).unwrap(),
-            cols: I::from(colidx.len()).unwrap(),
+            rows: rowidx.len(),
+            cols: colidx.len(),
             rowidx: b_j,
             colptr: b_p,
             data: b_x,
@@ -335,15 +335,18 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     }
 
     /// Performs matrix-matrix addition. The dimensions of x must be equal to those of the receiver.
-    pub fn add(&self, x: &CSC<I, T>) -> Result<CSC<I, T>, String> {
+    pub fn add(&self, x: &CSC<I, T>) -> Result<CSC<I, T>> {
         if x.rows != self.rows || x.cols != self.cols {
-            return Err(format!(
+            return Err(format_err!(
                 "dimension mismatch ({},{}) != ({},{})",
-                x.rows, x.cols, self.rows, self.cols
+                x.rows,
+                x.cols,
+                self.rows,
+                self.cols
             ));
         }
 
-        let maxnnz = (self.nnz() + x.nnz()).to_usize().unwrap();
+        let maxnnz = self.nnz() + x.nnz();
         let mut rowidx = vec![I::zero(); maxnnz];
         let mut colptr = vec![I::zero(); self.colptr.len()];
         let mut data = vec![T::zero(); maxnnz];
@@ -362,7 +365,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             &mut data,
         );
 
-        let newnnz = colptr[self.cols.to_usize().unwrap()].to_usize().unwrap();
+        let newnnz = colptr[self.cols].to_usize().unwrap();
         let rowidx = &rowidx[..newnnz];
         let data = &data[..newnnz];
 
@@ -377,15 +380,18 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
     /// Performs matrix-matrix subtraction. The dimensions of x must be
     /// equal to those of the receiver.
-    pub fn subtract(&self, x: &CSC<I, T>) -> Result<CSC<I, T>, String> {
+    pub fn subtract(&self, x: &CSC<I, T>) -> Result<CSC<I, T>> {
         if x.rows != self.rows || x.cols != self.cols {
-            return Err(format!(
+            return Err(format_err!(
                 "dimension mismatch ({},{}) != ({},{})",
-                x.rows, x.cols, self.rows, self.cols
+                x.rows,
+                x.cols,
+                self.rows,
+                self.cols
             ));
         }
 
-        let maxnnz = (self.nnz() + x.nnz()).to_usize().unwrap();
+        let maxnnz = self.nnz() + x.nnz();
         let mut rowidx = vec![I::zero(); maxnnz];
         let mut colptr = vec![I::zero(); self.colptr.len()];
         let mut data = vec![T::zero(); maxnnz];
@@ -404,7 +410,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             &mut data,
         );
 
-        let newnnz = colptr[self.cols.to_usize().unwrap()].to_usize().unwrap();
+        let newnnz = colptr[self.cols].to_usize().unwrap();
         let rowidx = &rowidx[..newnnz];
         let data = &data[..newnnz];
 
@@ -419,34 +425,38 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
     /// Converts the matrix into Compressed Sparse Row (CSR) format.
     pub fn to_csr(&self) -> CSR<I, T> {
-        let mut rowptr = vec![I::zero(); self.rows.to_usize().unwrap() + 1];
-        let mut colidx = vec![I::zero(); self.nnz().to_usize().unwrap()];
-        let mut data = vec![T::zero(); self.nnz().to_usize().unwrap()];
+        let mut rowptr = vec![I::zero(); self.rows + 1];
+        let mut colidx = vec![I::zero(); self.nnz()];
+        let mut data = vec![T::zero(); self.nnz()];
 
-        // csr_tocsc(self.cols, self.rows, &self.colptr, &self.rowidx, &self.data, &mut rowptr, &mut colidx, &mut data); FIXME
-        csc_tocsr(
-            self.rows,
+        csr_tocsc(
             self.cols,
-            &self.rowidx,
+            self.rows,
             &self.colptr,
+            &self.rowidx,
             &self.data,
-            &mut colidx,
             &mut rowptr,
+            &mut colidx,
             &mut data,
         );
 
-        CSR {
-            rows: self.rows,
-            cols: self.cols,
-            rowptr,
-            colidx,
-            data,
-        }
+        // csc_tocsr(
+        //     self.rows,
+        //     self.cols,
+        //     &self.rowidx,
+        //     &self.colptr,
+        //     &self.data,
+        //     &mut colidx,
+        //     &mut rowptr,
+        //     &mut data,
+        // );
+
+        CSR::new(self.rows, self.cols, rowptr, colidx, data).unwrap()
     }
 
     /// Converts the matrix into Coordinate (Coo) format.
     pub fn to_coo(&self) -> Coo<I, T> {
-        let nnz = self.nnz().to_usize().unwrap();
+        let nnz = self.nnz();
         let mut rowidx = vec![I::zero(); nnz];
         let mut colidx = vec![I::zero(); nnz];
         let mut data = vec![T::zero(); nnz];
@@ -462,13 +472,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             &mut data,
         );
 
-        Coo {
-            rows: self.rows,
-            cols: self.cols,
-            rowidx,
-            colidx,
-            data,
-        }
+        Coo::new(self.rows, self.cols, rowidx, colidx, data).unwrap()
     }
 
     /// Converts the matrix into a dense 2D slice.
@@ -479,7 +483,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     /// Returns a slice of the elements on the main diagonal.
     pub fn diagonal(&self) -> Vec<T> {
         let size = min(self.rows, self.cols);
-        let mut diag = vec![T::zero(); size.to_usize().unwrap()];
+        let mut diag = vec![T::zero(); size];
         csr_diagonal(
             0,
             self.cols,
@@ -490,6 +494,24 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             &mut diag,
         );
         diag
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut buf: String = String::new();
+        for j in 0..self.cols {
+            let col_start = self.colptr[j].to_usize().unwrap();
+            let col_end = self.colptr[j + 1].to_usize().unwrap();
+
+            for ii in col_start..col_end {
+                let i = self.rowidx[ii].to_usize().unwrap();
+
+                if !buf.is_empty() {
+                    buf.push('\n');
+                }
+                buf.push_str(&format!("({}, {}) {}", i, j, self.data[ii]));
+            }
+        }
+        buf
     }
 
     /// Assembles a matrix from four sub-matrices using HStackCoo and VStackCoo.
@@ -504,16 +526,16 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         j12: &CSC<I, T>,
         j21: &CSC<I, T>,
         j22: &CSC<I, T>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         let j11coo = j11.to_coo();
         let j12coo = j12.to_coo();
         let j21coo = j21.to_coo();
         let j22coo = j22.to_coo();
 
-        let j1x = Coo::h_stack(&j11coo, &j12coo, None)?;
-        let j2x = Coo::h_stack(&j21coo, &j22coo, None)?;
+        let j1x = Coo::h_stack(&j11coo, &j12coo)?;
+        let j2x = Coo::h_stack(&j21coo, &j22coo)?;
 
-        let j = Coo::v_stack(&j1x, &j2x, None)?;
+        let j = Coo::v_stack(&j1x, &j2x)?;
 
         Ok(j.to_csc())
     }

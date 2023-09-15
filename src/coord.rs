@@ -2,33 +2,35 @@ use crate::traits::{Integer, Scalar};
 
 /// Compute B = A for COO matrix A, CSR matrix B
 ///
-///
-/// Input Arguments:
+/// # Input Arguments
+/// ```txt
 ///   I  n_row      - number of rows in A
 ///   I  n_col      - number of columns in A
 ///   I  nnz        - number of nonzeros in A
 ///   I  Ai[nnz(A)] - row indices
 ///   I  Aj[nnz(A)] - column indices
 ///   T  Ax[nnz(A)] - nonzeros
-/// Output Arguments:
+/// ```
+/// # Output Arguments
+/// ```txt
 ///   I Bp  - row pointer
 ///   I Bj  - column indices
 ///   T Bx  - nonzeros
+/// ```
 ///
-/// Note:
-///   Output arrays Bp, Bj, and Bx must be preallocated
+/// # Notes
 ///
-/// Note:
-///   Input:  row and column indices *are not* assumed to be ordered
+/// Output arrays Bp, Bj, and Bx must be preallocated.
 ///
-///   Note: duplicate entries are carried over to the CSR represention
+/// Input: row and column indices *are not* assumed to be ordered.
 ///
-///   Complexity: Linear.  Specifically O(nnz(A) + max(n_row,n_col))
+/// Duplicate entries are carried over to the CSR represention.
 ///
+/// Complexity: Linear. Specifically `O(nnz(A) + max(n_row,n_col))`.
 pub fn coo_tocsr<I: Integer, T: Scalar>(
-    n_row: I,
-    _n_col: I,
-    nnz: I,
+    n_row: usize,
+    _n_col: usize,
+    nnz: usize,
     a_i: &[I],
     a_j: &[I],
     a_x: &[T],
@@ -40,22 +42,22 @@ pub fn coo_tocsr<I: Integer, T: Scalar>(
     // fill(Bp, Bp + n_row, 0);
     b_p.fill(I::zero());
 
-    for n in 0..nnz.to_usize().unwrap() {
+    for n in 0..nnz {
         let i = a_i[n].to_usize().unwrap();
         b_p[i] += I::one();
     }
 
     //cumsum the nnz per row to get Bp[]
     let mut cumsum = I::zero();
-    for i in 0..n_row.to_usize().unwrap() {
+    for i in 0..n_row {
         let temp: I = b_p[i];
         b_p[i] = cumsum;
         cumsum = cumsum + temp;
     }
-    b_p[n_row.to_usize().unwrap()] = nnz;
+    b_p[n_row] = I::from(nnz).unwrap();
 
     //write Aj,Ax into Bj,Bx
-    for n in 0..nnz.to_usize().unwrap() {
+    for n in 0..nnz {
         let row = a_i[n].to_usize().unwrap();
         let dest = b_p[row].to_usize().unwrap();
 
@@ -66,7 +68,7 @@ pub fn coo_tocsr<I: Integer, T: Scalar>(
     }
 
     let mut last = I::zero();
-    for i in 0..=n_row.to_usize().unwrap() {
+    for i in 0..=n_row {
         let temp: I = b_p[i];
         b_p[i] = last;
         last = temp;
@@ -77,7 +79,8 @@ pub fn coo_tocsr<I: Integer, T: Scalar>(
 
 /// Compute B += A for COO matrix A, dense matrix B
 ///
-/// Input Arguments:
+/// # Input Arguments
+/// ```txt
 ///   I  n_row           - number of rows in A
 ///   I  n_col           - number of columns in A
 ///   npy_int64  nnz     - number of nonzeros in A
@@ -85,9 +88,10 @@ pub fn coo_tocsr<I: Integer, T: Scalar>(
 ///   I  Aj[nnz(A)]      - column indices
 ///   T  Ax[nnz(A)]      - nonzeros
 ///   T  Bx[n_row*n_col] - dense matrix
+/// ```
 pub fn coo_todense<I: Integer, T: Scalar>(
-    n_row: I,
-    n_col: I,
+    n_row: usize,
+    n_col: usize,
     nnz: usize, /*npy_int64*/
     a_i: &[I],
     a_j: &[I],
@@ -97,12 +101,12 @@ pub fn coo_todense<I: Integer, T: Scalar>(
 ) {
     if !fortran {
         for n in 0..nnz {
-            let i = /*(npy_intp)*/(n_col * a_i[n] + a_j[n]).to_usize().unwrap();
+            let i = /*(npy_intp)*/ n_col * a_i[n].to_usize().unwrap() + a_j[n].to_usize().unwrap();
             b_x[i] += a_x[n];
         }
     } else {
         for n in 0..nnz {
-            let i = /*(npy_intp)*/(n_row * a_j[n] + a_i[n]).to_usize().unwrap();
+            let i = /*(npy_intp)*/ n_row * a_j[n].to_usize().unwrap() + a_i[n].to_usize().unwrap();
             b_x[i] += a_x[n];
         }
     }
@@ -110,21 +114,24 @@ pub fn coo_todense<I: Integer, T: Scalar>(
 
 /// Compute Y += A*X for COO matrix A and dense vectors X,Y
 ///
-///
-/// Input Arguments:
+/// # Input Arguments
+/// ```txt
 ///   npy_int64  nnz   - number of nonzeros in A
 ///   I  Ai[nnz]       - row indices
 ///   I  Aj[nnz]       - column indices
 ///   T  Ax[nnz]       - nonzero values
 ///   T  Xx[n_col]     - input vector
-///
-/// Output Arguments:
+/// ```
+/// # Output Arguments
+/// ```txt
 ///   T  Yx[n_row]     - output vector
+/// ```
 ///
-/// Notes:
-///   Output array Yx must be preallocated
+/// # Notes
 ///
-///   Complexity: Linear.  Specifically O(nnz(A))
+/// Output array Yx must be preallocated
+///
+/// Complexity: Linear. Specifically `O(nnz(A))`.
 pub fn coo_matvec<I: Integer, T: Scalar>(
     nnz: usize, /*npy_int64*/
     a_i: &[I],

@@ -1,15 +1,14 @@
 [package]
 name = "sparsetools"
 version = "0.1.0"
+description = "Sparse matrix types based on scipy.sparse"
 edition = "2018"
 
 [dependencies]
+anyhow = "1"
 num-traits = "0.2"
 num-complex = "0.4"
 rand = "0.8"
 tabwriter = "1.2"
 pretty_dtoa = "0.3"
-superslice = "1.0"
 opimps = "0.1"
-
-densetools = { path = "../densetools", optional = true }
