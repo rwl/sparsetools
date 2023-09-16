@@ -1,8 +1,9 @@
 [package]
 name = "sparsetools"
-version = "0.1.1"
+version = "0.1.2"
 description = "2-D sparse matrix package for numeric data"
 license = "BSD-3-Clause"
+repository = "https://github.com/rwl/sparsetools"
 edition = "2018"
 
 [dependencies]
