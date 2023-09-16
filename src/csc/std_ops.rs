@@ -4,7 +4,7 @@ use crate::traits::{Integer, Scalar};
 use std::ops::{Mul, Neg};
 
 #[opimps::impl_uni_op(Neg)]
-fn neg<I: Integer, T: Scalar>(self: CSC<I, T>) -> CSC<I, T> {
+fn neg<I: Integer, T: Scalar + Neg<Output = T>>(self: CSC<I, T>) -> CSC<I, T> {
     CSC::new(
         self.rows(),
         self.cols(),

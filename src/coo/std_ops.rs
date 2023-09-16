@@ -1,7 +1,7 @@
 use crate::coo::Coo;
 use crate::csr::CSR;
 use crate::traits::{Integer, Scalar};
-use std::ops::Add;
+use std::ops::{Add, Neg};
 
 #[opimps::impl_ops(Add)]
 fn add<I: Integer, T: Scalar>(self: Coo<I, T>, rhs: Coo<I, T>) -> CSR<I, T> {
@@ -27,8 +27,8 @@ fn add<I: Integer, T: Scalar>(self: Coo<I, T>, rhs: Coo<I, T>) -> CSR<I, T> {
     a_mat.to_csr() // Duplicate entries are summed.
 }
 
-#[opimps::impl_uni_op(std::ops::Neg)]
-fn neg<I: Integer, T: Scalar>(self: Coo<I, T>) -> Coo<I, T> {
+#[opimps::impl_uni_op(Neg)]
+fn neg<I: Integer, T: Scalar + Neg<Output = T>>(self: Coo<I, T>) -> Coo<I, T> {
     Coo::new(
         self.rows(),
         self.cols(),

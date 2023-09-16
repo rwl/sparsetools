@@ -69,7 +69,6 @@ pub trait Scalar<Output = Self>:
     + ops::Sub<Output = Self>
     + ops::Mul<Output = Self>
     + ops::Div<Output = Self>
-    + ops::Neg<Output = Self>
     + ops::AddAssign
     + ops::SubAssign
     + ops::MulAssign
@@ -78,7 +77,9 @@ pub trait Scalar<Output = Self>:
     + fmt::Display
     + Nonzero
 {
-    fn pretty_string(&self, config: Option<FmtFloatConfig>) -> String;
+    fn pretty_string(&self, _config: Option<FmtFloatConfig>) -> String {
+        format!("{}", self)
+    }
 }
 
 impl Scalar for f64 {
@@ -115,36 +116,44 @@ impl Scalar for num_complex::Complex<f32> {
     }
 }
 
-pub trait Nonzero {
-    fn nonzero(&self) -> bool;
-}
+impl Scalar for usize {}
+impl Scalar for u8 {}
+impl Scalar for u16 {}
+impl Scalar for u32 {}
+impl Scalar for u64 {}
+impl Scalar for u128 {}
 
-impl Nonzero for f64 {
+impl Scalar for isize {}
+impl Scalar for i8 {}
+impl Scalar for i16 {}
+impl Scalar for i32 {}
+impl Scalar for i64 {}
+impl Scalar for i128 {}
+
+pub trait Nonzero: PartialEq + Default {
     fn nonzero(&self) -> bool {
-        *self != 0.0
+        *self != Default::default()
     }
 }
 
-impl Nonzero for f32 {
-    fn nonzero(&self) -> bool {
-        *self != 0.0
-    }
-}
+impl Nonzero for f64 {}
+impl Nonzero for f32 {}
 
-impl Nonzero for num_complex::Complex<f64> {
-    fn nonzero(&self) -> bool {
-        self.re != 0.0 || self.im != 0.0
-    }
-}
+impl Nonzero for num_complex::Complex<f64> {}
+impl Nonzero for num_complex::Complex<f32> {}
 
-impl Nonzero for num_complex::Complex<f32> {
-    fn nonzero(&self) -> bool {
-        self.re != 0.0 || self.im != 0.0
-    }
-}
+impl Nonzero for bool {}
 
-impl Nonzero for bool {
-    fn nonzero(&self) -> bool {
-        *self
-    }
-}
+impl Nonzero for usize {}
+impl Nonzero for u8 {}
+impl Nonzero for u16 {}
+impl Nonzero for u32 {}
+impl Nonzero for u64 {}
+impl Nonzero for u128 {}
+
+impl Nonzero for isize {}
+impl Nonzero for i8 {}
+impl Nonzero for i16 {}
+impl Nonzero for i32 {}
+impl Nonzero for i64 {}
+impl Nonzero for i128 {}

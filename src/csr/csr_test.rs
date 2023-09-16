@@ -376,7 +376,7 @@ fn test_connected_components() -> Result<()> {
     // println!("{}", coo.to_csr().to_table());
 
     let (ncc, flags) = coo.to_csr().connected_components::<isize>()?;
-    // println!("{:?}", flags);
+    println!("{:?}", flags);
     assert_eq!(ncc, 3);
 
     assert!(flags[0] < 0);

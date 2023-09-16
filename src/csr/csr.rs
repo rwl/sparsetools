@@ -60,6 +60,37 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         }
     }
 
+    pub fn from_dense(a: &[Vec<T>]) -> Self {
+        let rows = a.len();
+        let cols = a[0].len();
+
+        let mut rowptr = Vec::<I>::new();
+        let mut colidx = Vec::<I>::new();
+        let mut data = Vec::new();
+
+        let mut idxptr: usize = 0;
+        for i in 0..rows {
+            rowptr.push(I::from(idxptr).unwrap());
+            for j in 0..cols {
+                if a[i][j] != T::zero() {
+                    data.push(a[i][j]);
+                    colidx.push(I::from(j).unwrap());
+                    idxptr += 1
+                }
+            }
+        }
+        rowptr.push(I::from(idxptr).unwrap());
+        let mut csr = CSR {
+            rows,
+            cols,
+            rowptr,
+            colidx,
+            data,
+        };
+        csr.prune().unwrap();
+        csr
+    }
+
     /// Creates a new CSR matrix with the given values on the main
     /// diagonal. The input is not copied.
     pub fn with_diagonal(data: Vec<T>) -> Self {

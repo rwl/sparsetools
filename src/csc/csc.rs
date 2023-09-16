@@ -48,6 +48,37 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         })
     }
 
+    pub fn from_dense(a: &[Vec<T>]) -> Self {
+        let rows = a.len();
+        let cols = a[0].len();
+
+        let mut colptr = Vec::<I>::new();
+        let mut rowidx = Vec::<I>::new();
+        let mut data = Vec::new();
+
+        let mut idxptr: usize = 0;
+        for i in 0..cols {
+            colptr.push(I::from(idxptr).unwrap());
+            for j in 0..rows {
+                if a[j][i] != T::zero() {
+                    data.push(a[j][i]);
+                    rowidx.push(I::from(j).unwrap());
+                    idxptr += 1
+                }
+            }
+        }
+        colptr.push(I::from(idxptr).unwrap());
+        let mut csc = CSC {
+            rows,
+            cols,
+            rowidx,
+            colptr,
+            data,
+        };
+        csc.prune().unwrap();
+        csc
+    }
+
     /// Creates a new CSC matrix with the given values on the main
     /// diagonal. The input is not copied.
     pub fn with_diagonal(data: Vec<T>) -> Self {

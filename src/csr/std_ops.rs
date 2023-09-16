@@ -5,7 +5,7 @@ use num_complex::Complex64;
 use std::ops::{Add, Mul, Neg, Sub};
 
 #[opimps::impl_uni_op(Neg)]
-fn neg<I: Integer, T: Scalar>(self: CSR<I, T>) -> CSR<I, T> {
+fn neg<I: Integer, T: Scalar + Neg<Output = T>>(self: CSR<I, T>) -> CSR<I, T> {
     CSR::new(
         self.rows(),
         self.cols(),

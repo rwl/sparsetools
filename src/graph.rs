@@ -1,10 +1,338 @@
 //  Author: Jake Vanderplas <vanderplas@astro.washington.edu>
 
-use crate::{
-    csr::CSR,
-    traits::{Integer, Scalar},
-};
+use std::cmp::Ordering;
+
+use crate::csr::CSR;
+use crate::traits::{Integer, Scalar};
 use anyhow::{format_err, Result};
+
+/// For directed graphs, the type of connection to use.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Connection {
+    /// A directed graph is weakly connected if replacing all of its
+    /// directed edges with undirected edges produces a connected
+    /// (undirected) graph.
+    Weak,
+    /// Nodes `i` and `j` are strongly connected if a path exists both
+    /// from `i` to `j` and from `j` to `i`.
+    Strong,
+}
+
+/// Analyze the connected components of a sparse graph
+///
+/// If directed is `true` (default), then operate on a directed graph: only
+/// move from point `i` to point `j` along paths `csgraph[i, j]`.
+/// If `false`, then find the shortest path on an undirected graph: the
+/// algorithm can progress from point `i` to `j` along `csgraph[i, j]` or
+/// `csgraph[j, i]`.
+///
+/// If `directed` == `false`, the `connection` argument is not referenced.
+///
+/// Returns the number of connected components and a length-N vector of
+/// labels of the connected components.
+///
+/// # References
+///
+/// - [1] D. J. Pearce, "An Improved Algorithm for Finding the Strongly
+///   Connected Components of a Directed Graph", Technical Report, 2005
+///
+/// # Example
+/// ```
+/// use sparsetools::csr::CSR;
+/// use sparsetools::graph::{connected_components, Connection};
+/// use std::iter::zip;
+///
+/// fn main() {
+///     let graph = CSR::<usize, usize>::from_dense(&vec![
+///         vec![0, 1, 1, 0, 0],
+///         vec![0, 0, 1, 0, 0],
+///         vec![0, 0, 0, 0, 0],
+///         vec![0, 0, 0, 0, 1],
+///         vec![0, 0, 0, 0, 0]
+///     ]);
+///     println!("{}", graph.to_table());
+///     let (n_components, labels) = connected_components(&graph, false, Connection::Weak).unwrap();
+///     println!("{:?}", labels);
+///     assert_eq!(n_components, 2);
+///     zip(labels, [0, 0, 0, 1, 1]).for_each(|(a, e)| assert_eq!(a, e));
+/// }
+/// ```
+pub fn connected_components<I: Integer, T: Scalar>(
+    csgraph: &CSR<I, T>,
+    mut directed: bool,
+    connection: Connection,
+) -> Result<(usize, Vec<usize>)> {
+    // weak connections <=> components of undirected graph
+    if connection == Connection::Weak {
+        directed = false;
+    }
+
+    validate_graph(csgraph, directed)?;
+
+    let n = csgraph.cols();
+
+    let (n_components, labels) = if directed {
+        connected_components_directed(n, csgraph.colidx(), csgraph.rowptr())
+    } else {
+        let csgraph_t = csgraph.t().to_csr();
+        connected_components_undirected(
+            n,
+            csgraph.colidx(),
+            csgraph.rowptr(),
+            csgraph_t.colidx(),
+            csgraph_t.rowptr(),
+        )
+    };
+
+    Ok((n_components, labels))
+}
+
+// The array containing the lowlinks of nodes not yet assigned an SCC. Shares
+// memory with the labels array, since they are not used at the same time.
+macro_rules! lowlinks {
+    ($labels:ident) => {
+        $labels
+    };
+}
+
+// stack_f shares memory with SS, as nodes aren't put on the
+// SS stack until after they've been popped from the DFS stack.
+macro_rules! stack_f {
+    ($ss:ident) => {
+        $ss
+    };
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Node {
+    Label(usize),
+    Void,
+    End,
+}
+
+impl Node {
+    fn unwrap(self) -> usize {
+        match self {
+            Node::Label(l) => l,
+            Node::Void => panic!("called `Label::unwrap()` on a `Void` value"),
+            Node::End => panic!("called `Label::unwrap()` on a `End` value"),
+        }
+    }
+}
+
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Node::Label(l1), Node::Label(l2)) => l1.partial_cmp(l2),
+            (Node::Label(_), Node::Void) => Some(Ordering::Greater),
+            (Node::Label(_), Node::End) => Some(Ordering::Greater),
+            (Node::Void, Node::Label(_)) => Some(Ordering::Less),
+            (Node::Void, Node::Void) => Some(Ordering::Equal),
+            (Node::Void, Node::End) => Some(Ordering::Greater),
+            (Node::End, Node::Label(_)) => Some(Ordering::Less),
+            (Node::End, Node::Void) => Some(Ordering::Less),
+            (Node::End, Node::End) => Some(Ordering::Equal),
+        }
+    }
+}
+
+/// Uses an iterative version of Tarjan's algorithm to find the
+/// strongly connected components of a directed graph represented as a
+/// sparse matrix.
+///
+/// The algorithmic complexity is for a graph with `E` edges and `V`
+/// vertices is `O(E + V)`.
+/// The storage requirement is `2*V` integer arrays.
+///
+/// Uses an iterative version of the algorithm described here:
+/// http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.102.1707
+///
+/// For more details of the memory optimisations used see here:
+/// http://www.timl.id.au/SCC
+fn connected_components_directed<I: Integer>(
+    n: usize,
+    indices: &[I],
+    indptr: &[I],
+) -> (usize, Vec<usize>) {
+    let mut labels = vec![Node::Void; n];
+
+    // The stack of nodes which have been backtracked and are in the current SCC
+    let mut ss = vec![Node::Void; n];
+    let mut stack_b = vec![Node::Void; n];
+    let mut ss_head = Node::End;
+
+    // The DFS stack. Stored with both forwards and backwards pointers to allow
+    // us to move a node up to the top of the stack, as we only need to visit
+    // each node once.
+    let mut stack_head;
+
+    let mut index = 0;
+    // Count SCC labels backwards so as not to clash with lowlinks values.
+    let mut label = Node::Label(n - 1);
+    for v in 0..n {
+        if lowlinks![labels][v] == Node::Void {
+            // DFS-stack push
+            stack_head = Node::Label(v);
+            stack_f![ss][v] = Node::End;
+            stack_b[v] = Node::End;
+            while stack_head != Node::End {
+                let v = stack_head.unwrap();
+                if lowlinks![labels][v] == Node::Void {
+                    lowlinks![labels][v] = Node::Label(index);
+                    index += 1;
+
+                    // Add successor nodes
+                    for j in indptr[v].to_usize().unwrap()..indptr[v + 1].to_usize().unwrap() {
+                        let w = indices[j].to_usize().unwrap();
+                        if lowlinks![labels][w] == Node::Void {
+                            // TODO: get_unchecked
+                            // DFS-stack push
+                            if stack_f![ss][w] != Node::Void {
+                                // w is already inside the stack,
+                                // so excise it.
+                                let f = stack_f![ss][w];
+                                let b = stack_b[w];
+                                if b != Node::End {
+                                    stack_f![ss][b.unwrap()] = f;
+                                }
+                                if f != Node::End {
+                                    stack_b[f.unwrap()] = b;
+                                }
+                            }
+
+                            stack_f![ss][w] = stack_head;
+                            stack_b[w] = Node::End;
+                            stack_b[stack_head.unwrap()] = Node::Label(w);
+                            stack_head = Node::Label(w);
+                        }
+                    }
+                } else {
+                    // DFS-stack pop
+                    stack_head = stack_f![ss][v];
+                    if stack_head != Node::Void && stack_head != Node::End {
+                        stack_b[stack_head.unwrap()] = Node::End;
+                    }
+                    stack_f![ss][v] = Node::Void;
+                    stack_b[v] = Node::Void;
+
+                    let mut root = true;
+                    let mut low_v = lowlinks![labels][v];
+                    for j in indptr[v].to_usize().unwrap()..indptr[v + 1].to_usize().unwrap() {
+                        let low_w = lowlinks![labels][indices[j].to_usize().unwrap()];
+                        if low_w < low_v {
+                            low_v = low_w;
+                            root = false;
+                        }
+                    }
+                    lowlinks![labels][v] = low_v;
+
+                    if root {
+                        // Found a root node
+                        index -= 1;
+                        while ss_head != Node::End
+                            && lowlinks![labels][v] <= lowlinks![labels][ss_head.unwrap()]
+                        {
+                            let w = ss_head.unwrap();
+                            // w = pop(S)
+                            ss_head = ss[w];
+                            ss[w] = Node::Void;
+
+                            labels[w] = label;
+                            // rindex[w] = c
+                            index -= 1;
+                        }
+                        labels[v] = label;
+                        // rindex[v] = c
+                        label = match label {
+                            Node::Label(l) => {
+                                if l == 0 {
+                                    Node::Void
+                                } else {
+                                    Node::Label(l - 1)
+                                }
+                            }
+                            Node::Void => Node::End,
+                            Node::End => {
+                                unreachable!("label with End node mark");
+                            }
+                        }
+                        // label -= 1; // c = c - 1
+                    } else {
+                        ss[v] = ss_head;
+                        // push(S, v)
+                        ss_head = Node::Label(v);
+                    }
+                }
+            }
+        }
+    }
+
+    // labels count down from N-1 to zero. Modify them so they
+    // count upward from 0
+    (
+        match label {
+            Node::Label(l) => (n - 1) - l,
+            _ => n, // (n - 1) - (-1),
+        },
+        labels.iter().map(|l| (n - 1) - l.unwrap()).collect(),
+    )
+}
+
+// Share memory for the stack and labels, since labels are only
+// applied once a node has been popped from the stack.
+macro_rules! ss {
+    ($labels:ident) => {
+        $labels
+    };
+}
+
+fn connected_components_undirected<I: Integer>(
+    n: usize,
+    indices1: &[I],
+    indptr1: &[I],
+    indices2: &[I],
+    indptr2: &[I],
+) -> (usize, Vec<usize>) {
+    let mut labels = vec![Node::Void; n];
+    let mut label = 0;
+
+    let mut ss_head;
+    for v in 0..n {
+        if labels[v] == Node::Void {
+            // ss.push(v)
+            ss_head = Node::Label(v);
+            ss![labels][v] = Node::End;
+
+            while ss_head != Node::End {
+                // v = ss.pop()
+                let v = ss_head.unwrap();
+                ss_head = ss![labels][v];
+
+                labels[v] = Node::Label(label);
+
+                // Push children onto the stack if they haven't been
+                // seen at all yet.
+                for j in indptr1[v].to_usize().unwrap()..indptr1[v + 1].to_usize().unwrap() {
+                    let w = indices1[j].to_usize().unwrap();
+                    if ss![labels][w] == Node::Void {
+                        ss![labels][w] = ss_head;
+                        ss_head = Node::Label(w);
+                    }
+                }
+                for j in indptr2[v].to_usize().unwrap()..indptr2[v + 1].to_usize().unwrap() {
+                    let w = indices2[j].to_usize().unwrap();
+                    if ss![labels][w] == Node::Void {
+                        ss![labels][w] = ss_head;
+                        ss_head = Node::Label(w);
+                    }
+                }
+            }
+            label += 1;
+        }
+    }
+
+    (label, labels.iter().map(|l| l.unwrap()).collect())
+}
 
 /// Determine connected components of a compressed sparse graph.
 ///
@@ -99,6 +427,28 @@ pub fn cs_graph_components<I: Integer, T: Scalar, F: Integer + num_traits::Signe
 /// tree. If node `i` is in the tree, then its parent is given by
 /// `predecessors[i]`. If node `i` is not in the tree (and for the parent
 /// node) then `predecessors[i] = None`.
+///
+/// # Example
+/// ```
+/// use sparsetools::csr::CSR;
+/// use sparsetools::graph::depth_first_order;
+/// use std::iter::zip;
+///
+/// fn main() {
+///     let graph = CSR::<usize, usize>::from_dense(&vec![
+///         vec![0, 1, 2, 0],
+///         vec![0, 0, 0, 1],
+///         vec![2, 0, 0, 3],
+///         vec![0, 0, 0, 0]
+///     ]);
+///     println!("{}", graph.to_table());
+///     let (nodes, predecessors) = depth_first_order(&graph, 0, true).unwrap();
+///     println!("{:?}", nodes);
+///     println!("{:?}", predecessors);
+///     zip(nodes, [0, 1, 3, 2]).for_each(|(a, e)| assert_eq!(a, e));
+///     zip(predecessors, [None, Some(0), Some(0), Some(1)]).for_each(|(a, e)| assert_eq!(a, e));
+/// }
+/// ```
 pub fn depth_first_order<I: Integer, T: Scalar>(
     csgraph: &CSR<I, T>,
     i_start: usize,
@@ -260,4 +610,93 @@ fn validate_graph<I: Integer, T: Scalar>(csgraph: &CSR<I, T>, _directed: bool) -
         return Err(format_err!("compressed-sparse graph must be shape (N, N)"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::iter::zip;
+
+    use crate::csr::CSR;
+    use crate::graph::{connected_components, Connection};
+
+    #[test]
+    fn test_weak_connections() {
+        let x_de = vec![vec![0, 1, 0], vec![0, 0, 0], vec![0, 0, 0]];
+
+        let x_sp = CSR::<usize, usize>::from_dense(&x_de);
+
+        let (n_components, labels) = connected_components(&x_sp, true, Connection::Weak).unwrap();
+
+        assert_eq!(n_components, 2);
+        zip(labels, [0, 0, 1]).for_each(|(a, e)| assert_eq!(a, e));
+    }
+
+    #[test]
+    fn test_strong_connections() {
+        let x1_de = vec![vec![0, 1, 0], vec![0, 0, 0], vec![0, 0, 0]];
+        // X2de = X1de + X1de.T
+
+        let x1_sp = CSR::<usize, usize>::from_dense(&x1_de);
+        let x2_sp = &x1_sp + &x1_sp.t().to_csr();
+
+        // println!("{}", x1_sp.to_table());
+        // println!("{}", x2_sp.to_table());
+
+        let (n_components, mut labels) =
+            connected_components(&x1_sp, true, Connection::Strong).unwrap();
+
+        assert_eq!(n_components, 3);
+        labels.sort();
+        zip(labels, [0, 1, 2]).for_each(|(a, e)| assert_eq!(a, e));
+        // zip(labels, [0, 1, 2]).for_each(|(a, e)| assert_eq!(a, e));
+
+        let (n_components, mut labels) =
+            connected_components(&x2_sp, true, Connection::Strong).unwrap();
+
+        assert_eq!(n_components, 2);
+        labels.sort();
+        zip(labels, [0, 0, 1]).for_each(|(a, e)| assert_eq!(a, e));
+        // zip(labels, [0, 0, 1]).for_each(|(a, e)| assert_eq!(a, e));
+    }
+
+    #[test]
+    fn test_strong_connections2() {
+        let x = vec![
+            vec![0, 0, 0, 0, 0, 0],
+            vec![1, 0, 1, 0, 0, 0],
+            vec![0, 0, 0, 1, 0, 0],
+            vec![0, 0, 1, 0, 1, 0],
+            vec![0, 0, 0, 0, 0, 0],
+            vec![0, 0, 0, 0, 1, 0],
+        ];
+
+        let x_sp = CSR::<usize, usize>::from_dense(&x);
+
+        let (n_components, mut labels) =
+            connected_components(&x_sp, true, Connection::Strong).unwrap();
+
+        assert_eq!(n_components, 5);
+        labels.sort();
+        zip(labels, [0, 1, 2, 2, 3, 4]).for_each(|(a, e)| assert_eq!(a, e));
+    }
+
+    #[test]
+    fn test_weak_connections2() {
+        let x = vec![
+            vec![0, 0, 0, 0, 0, 0],
+            vec![1, 0, 0, 0, 0, 0],
+            vec![0, 0, 0, 1, 0, 0],
+            vec![0, 0, 1, 0, 1, 0],
+            vec![0, 0, 0, 0, 0, 0],
+            vec![0, 0, 0, 0, 1, 0],
+        ];
+
+        let x_sp = CSR::<usize, usize>::from_dense(&x);
+
+        let (n_components, mut labels) =
+            connected_components(&x_sp, true, Connection::Weak).unwrap();
+        assert_eq!(n_components, 2);
+        labels.sort();
+        zip(labels, [0, 0, 1, 1, 1, 1]).for_each(|(a, e)| assert_eq!(a, e));
+    }
 }
