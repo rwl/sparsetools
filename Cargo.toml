@@ -1,7 +1,7 @@
 [package]
 name = "sparsetools"
-version = "0.1.0"
-description = "SciPy 2-D sparse matrix package for numeric data."
+version = "0.1.1"
+description = "2-D sparse matrix package for numeric data"
 license = "BSD-3-Clause"
 edition = "2018"
 
