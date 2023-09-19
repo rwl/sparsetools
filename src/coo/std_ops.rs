@@ -13,17 +13,17 @@ fn add<I: Integer, T: Scalar>(self: Coo<I, T>, rhs: Coo<I, T>) -> CSR<I, T> {
 
     let mut rowidx = Vec::with_capacity(nnz);
     let mut colidx = Vec::with_capacity(nnz);
-    let mut data = Vec::with_capacity(nnz);
+    let mut values = Vec::with_capacity(nnz);
 
     rowidx.extend(self.rowidx());
     colidx.extend(self.colidx());
-    data.extend(self.data());
+    values.extend(self.values());
 
     rowidx.extend(rhs.rowidx());
     colidx.extend(rhs.colidx());
-    data.extend(rhs.data());
+    values.extend(rhs.values());
 
-    let a_mat = Coo::new(self.rows(), self.cols(), rowidx, colidx, data).unwrap();
+    let a_mat = Coo::new(self.rows(), self.cols(), rowidx, colidx, values).unwrap();
     a_mat.to_csr() // Duplicate entries are summed.
 }
 
@@ -34,7 +34,7 @@ fn neg<I: Integer, T: Scalar + Neg<Output = T>>(self: Coo<I, T>) -> Coo<I, T> {
         self.cols(),
         self.rowidx,
         self.colidx,
-        self.data.iter().map(|&d| -d).collect(),
+        self.values.iter().map(|&d| -d).collect(),
     )
     .unwrap()
 }

@@ -13,7 +13,7 @@ pub struct Coo<I, T> {
     cols: usize,
     pub(super) rowidx: Vec<I>,
     pub(super) colidx: Vec<I>,
-    pub(super) data: Vec<T>,
+    pub(super) values: Vec<T>,
 }
 
 impl<I: Integer, T: Scalar> Coo<I, T> {
@@ -24,12 +24,12 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         cols: usize,
         rowidx: Vec<I>,
         colidx: Vec<I>,
-        data: Vec<T>,
+        values: Vec<T>,
     ) -> Result<Self> {
-        let nnz = data.len();
+        let nnz = values.len();
         if nnz != rowidx.len() || nnz != colidx.len() {
             return Err(format_err!(
-                "row, column, and data array must all be the same length"
+                "row, column, and values array must all be the same length"
             ));
         }
         Ok(Self {
@@ -37,7 +37,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             cols,
             rowidx,
             colidx,
-            data,
+            values,
         })
     }
 
@@ -47,7 +47,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             cols,
             rowidx: Vec::default(),
             colidx: Vec::default(),
-            data: Vec::default(),
+            values: Vec::default(),
         }
     }
 
@@ -57,7 +57,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             cols,
             rowidx: Vec::with_capacity(nnz),
             colidx: Vec::with_capacity(nnz),
-            data: Vec::with_capacity(nnz),
+            values: Vec::with_capacity(nnz),
         }
     }
 
@@ -70,14 +70,14 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
 
         let mut rowidx = Vec::<I>::with_capacity(m * n);
         let mut colidx = Vec::<I>::with_capacity(m * n);
-        let mut data = Vec::<T>::with_capacity(m * n);
+        let mut values = Vec::<T>::with_capacity(m * n);
 
         for (i, r) in a.iter().enumerate() {
             for (j, &v) in r.iter().enumerate() {
                 if v != T::zero() {
                     rowidx.push(I::from(i).unwrap());
                     colidx.push(I::from(j).unwrap());
-                    data.push(v);
+                    values.push(v);
                 }
             }
         }
@@ -87,7 +87,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             cols: n,
             rowidx,
             colidx,
-            data,
+            values,
         }
     }
 
@@ -96,18 +96,18 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         let n = diag.len();
         let mut rowidx = vec![I::zero(); n];
         let mut colidx = vec![I::zero(); n];
-        let mut data = vec![T::zero(); n];
+        let mut values = vec![T::zero(); n];
         for i in 0..n {
             rowidx[i] = I::from(i).unwrap();
             colidx[i] = I::from(i).unwrap();
-            data[i] = diag[i];
+            values[i] = diag[i];
         }
         Self {
             rows: n,
             cols: n,
             rowidx,
             colidx,
-            data,
+            values,
         }
     }
 
@@ -147,9 +147,9 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     //         colidx[i] = I::from(c).unwrap();
     //         rowidx[i] = v - colidx[i] * rows;
     //     }
-    //     let mut data = vec![T::zero(); nnz];
-    //     for i in 0..data.len() {
-    //         data[i] = rng.gen();
+    //     let mut values = vec![T::zero(); nnz];
+    //     for i in 0..values.len() {
+    //         values[i] = rng.gen();
     //     }
     //
     //     Self {
@@ -157,25 +157,25 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     //         cols,
     //         rowidx,
     //         colidx,
-    //         data,
+    //         values,
     //     }
     // }
 
     pub fn identity(n: usize) -> Self {
         let mut rowidx = vec![I::zero(); n];
         let mut colidx = vec![I::zero(); n];
-        let mut data = vec![T::zero(); n];
+        let mut values = vec![T::zero(); n];
         for i in 0..n {
             rowidx[i] = I::from(i).unwrap();
             colidx[i] = I::from(i).unwrap();
-            data[i] = T::one();
+            values[i] = T::one();
         }
         Self {
             rows: n,
             cols: n,
             rowidx,
             colidx,
-            data,
+            values,
         }
     }
 
@@ -200,56 +200,56 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     }
 
     /// Explicitly stored values (size nnz).
-    pub fn data(&self) -> &[T] {
-        &self.data
+    pub fn values(&self) -> &[T] {
+        &self.values
     }
 
     /// Returns the count of explicitly stored values (nonzeros).
     pub fn nnz(&self) -> usize {
-        self.data.len()
+        self.values.len()
     }
 
     pub fn push(&mut self, row: I, col: I, v: T) {
         self.rowidx.push(row);
         self.colidx.push(col);
-        self.data.push(v);
+        self.values.push(v);
     }
 
     pub fn extend(&mut self, row: &[I], col: &[I], v: &[T]) {
         self.rowidx.extend(row);
         self.colidx.extend(col);
-        self.data.extend(v);
+        self.values.extend(v);
     }
 
     // Copy creates an identical coordinate matrix with newly allocated
-    // index and data slices.
+    // index and values slices.
     // func (mat *Coo) Copy() *Coo {
     // 	nnz := mat.NNZ()
     //
     // 	rowidx := make([]int, nnz)
     // 	colidx := make([]int, nnz)
-    // 	data := make([]float64, nnz)
+    // 	values := make([]float64, nnz)
     // 	copy(rowidx, mat.rowidx)
     // 	copy(colidx, mat.colidx)
-    // 	copy(data, mat.data)
+    // 	copy(values, mat.values)
     //
     // 	return &Coo{rows: mat.rows, cols: mat.cols,
-    // 		rowidx: rowidx, colidx: colidx, data: data}
+    // 		rowidx: rowidx, colidx: colidx, values: values}
     // }
 
     /// Creates a coordinate matrix that is the transpose of the
-    /// receiver. The underlying index and data vectors are not copied.
+    /// receiver. The underlying index and values vectors are not copied.
     pub fn transpose(self) -> Coo<I, T> {
         Coo {
             rows: self.cols,
             cols: self.rows,
             rowidx: self.colidx,
             colidx: self.rowidx,
-            data: self.data,
+            values: self.values,
         }
     }
 
-    /// An alias for `transpose`, but the underlying index and data
+    /// An alias for `transpose`, but the underlying index and values
     /// vectors are copied.
     pub fn t(&self) -> Coo<I, T> {
         Coo {
@@ -257,7 +257,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             cols: self.rows,
             rowidx: self.colidx.clone(),
             colidx: self.rowidx.clone(),
-            data: self.data.clone(),
+            values: self.values.clone(),
         }
     }
 
@@ -267,7 +267,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         let nnz = self.nnz();
         let mut rowidx = vec![I::zero(); nnz];
         let mut colptr = vec![I::zero(); self.cols + 1];
-        let mut data = vec![T::zero(); nnz];
+        let mut values = vec![T::zero(); nnz];
 
         coo_tocsr(
             self.cols,
@@ -275,13 +275,13 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             self.nnz(),
             &self.colidx,
             &self.rowidx,
-            &self.data,
+            &self.values,
             &mut colptr,
             &mut rowidx,
-            &mut data,
+            &mut values,
         );
 
-        let mut a_mat = CSC::new(self.rows, self.cols, rowidx, colptr, data).unwrap();
+        let mut a_mat = CSC::new(self.rows, self.cols, rowidx, colptr, values).unwrap();
         a_mat.sum_duplicates();
         a_mat
     }
@@ -292,7 +292,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         let nnz = self.nnz();
         let mut rowptr = vec![I::zero(); self.rows + 1];
         let mut colidx = vec![I::zero(); nnz];
-        let mut data = vec![T::zero(); nnz];
+        let mut values = vec![T::zero(); nnz];
 
         coo_tocsr(
             self.rows,
@@ -300,13 +300,13 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             self.nnz(),
             &self.rowidx,
             &self.colidx,
-            &self.data,
+            &self.values,
             &mut rowptr,
             &mut colidx,
-            &mut data,
+            &mut values,
         );
 
-        let mut a_mat = CSR::new(self.rows, self.cols, rowptr, colidx, data).unwrap();
+        let mut a_mat = CSR::new(self.rows, self.cols, rowptr, colidx, values).unwrap();
         a_mat.sum_duplicates().unwrap();
         a_mat
     }
@@ -322,7 +322,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         for n in 0..self.nnz() {
             let i = self.rowidx[n].to_usize().unwrap();
             let j = self.colidx[n].to_usize().unwrap();
-            dense[i][j] = dense[i][j] + self.data[n];
+            dense[i][j] = dense[i][j] + self.values[n];
         }
         dense
     }
@@ -333,13 +333,13 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         let c = (self.nnz() / 2) + self.cols;
         let mut rowidx = Vec::with_capacity(c);
         let mut colidx = Vec::with_capacity(c);
-        let mut data = Vec::with_capacity(c);
+        let mut values = Vec::with_capacity(c);
 
         for i in 0..self.nnz() {
             if self.rowidx[i] + k <= self.colidx[i] {
                 rowidx.push(self.rowidx[i]);
                 colidx.push(self.colidx[i]);
-                data.push(self.data[i]);
+                values.push(self.values[i]);
             }
         }
 
@@ -348,7 +348,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             cols: self.cols,
             rowidx,
             colidx,
-            data,
+            values: values,
         }
     }
 
@@ -356,11 +356,11 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
     pub fn diagonal(&self) -> Vec<T> {
         let n = min(self.rows, self.cols);
         let mut d = vec![T::zero(); n];
-        for i in 0..self.data.len() {
+        for i in 0..self.values.len() {
             let r = self.rowidx[i];
             if r == self.colidx[i] {
                 let j = r.to_usize().unwrap();
-                d[j] = d[j] + self.data[i];
+                d[j] = d[j] + self.values[i];
             }
         }
         d
@@ -374,7 +374,7 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
             }
             buf.push_str(&format!(
                 "({}, {}) {}",
-                self.rowidx[i], self.colidx[i], self.data[i]
+                self.rowidx[i], self.colidx[i], self.values[i]
             ));
         }
         buf
@@ -415,16 +415,16 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
         colidx.extend(&a_mat.colidx);
         colidx.extend(&b_mat.colidx);
 
-        let mut data = Vec::with_capacity(nnz);
-        data.extend(&a_mat.data);
-        data.extend(&b_mat.data);
+        let mut values = Vec::with_capacity(nnz);
+        values.extend(&a_mat.values);
+        values.extend(&b_mat.values);
 
         Ok(Coo {
             rows,
             cols,
             rowidx,
             colidx,
-            data,
+            values,
         })
     }
 
@@ -485,11 +485,11 @@ impl<I: Integer, T: Scalar> Coo<I, T> {
                 .map(|&c| c + I::from(a_mat.cols).unwrap()),
         );
 
-        let mut data = Vec::with_capacity(nnz);
-        data.extend(&a_mat.data);
-        data.extend(&b_mat.data);
+        let mut values = Vec::with_capacity(nnz);
+        values.extend(&a_mat.values);
+        values.extend(&b_mat.values);
 
-        Coo::new(rows, cols, rowidx, colidx, data)
+        Coo::new(rows, cols, rowidx, colidx, values)
     }
 
     /// Creates a new coordinate matrix by horizontally stacking the

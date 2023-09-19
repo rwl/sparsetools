@@ -11,7 +11,7 @@ fn neg<I: Integer, T: Scalar + Neg<Output = T>>(self: CSR<I, T>) -> CSR<I, T> {
         self.cols(),
         self.rowptr,
         self.colidx,
-        self.data.iter().map(|&a| -a).collect(),
+        self.values.iter().map(|&a| -a).collect(),
     )
     .unwrap()
 }
@@ -21,23 +21,23 @@ fn add<I: Integer, T: Scalar>(self: CSR<I, T>, rhs: CSR<I, T>) -> CSR<I, T> {
     let nnz = self.nnz() + rhs.nnz();
     let mut rowptr = vec![I::zero(); self.rows() + 1];
     let mut colidx = vec![I::zero(); nnz];
-    let mut data = vec![T::zero(); nnz];
+    let mut values = vec![T::zero(); nnz];
 
     csr_add_csr(
         self.rows(),
         self.cols(),
         self.rowptr(),
         self.colidx(),
-        self.data(),
+        self.values(),
         rhs.rowptr(),
         rhs.colidx(),
-        rhs.data(),
+        rhs.values(),
         &mut rowptr,
         &mut colidx,
-        &mut data,
+        &mut values,
     );
 
-    CSR::new(self.rows(), self.cols(), rowptr, colidx, data).unwrap()
+    CSR::new(self.rows(), self.cols(), rowptr, colidx, values).unwrap()
 }
 
 #[opimps::impl_ops(Sub)]
@@ -45,23 +45,23 @@ fn sub<I: Integer, T: Scalar>(self: CSR<I, T>, rhs: CSR<I, T>) -> CSR<I, T> {
     let nnz = self.nnz() + rhs.nnz();
     let mut rowptr = vec![I::zero(); self.rows() + 1];
     let mut colidx = vec![I::zero(); nnz];
-    let mut data = vec![T::zero(); nnz];
+    let mut values = vec![T::zero(); nnz];
 
     csr_sub_csr(
         self.rows(),
         self.cols(),
         &self.rowptr(),
         &self.colidx(),
-        &self.data(),
+        &self.values(),
         &rhs.rowptr(),
         &rhs.colidx(),
-        &rhs.data(),
+        &rhs.values(),
         &mut rowptr,
         &mut colidx,
-        &mut data,
+        &mut values,
     );
 
-    CSR::new(self.rows(), self.cols(), rowptr, colidx, data).unwrap()
+    CSR::new(self.rows(), self.cols(), rowptr, colidx, values).unwrap()
 }
 
 #[opimps::impl_ops(Mul)]
@@ -76,7 +76,7 @@ fn mul<I: Integer, T: Scalar>(self: CSR<I, T>, rhs: T) -> CSR<I, T> {
         self.cols(),
         self.rowptr().to_vec(),
         self.colidx().to_vec(),
-        self.data().iter().map(|&v| v * rhs).collect::<Vec<T>>(),
+        self.values().iter().map(|&v| v * rhs).collect::<Vec<T>>(),
     )
     .unwrap()
 }
@@ -87,7 +87,7 @@ fn mul<I: Integer>(self: Complex64, rhs: CSR<I, Complex64>) -> CSR<I, Complex64>
         rhs.cols(),
         rhs.rowptr().to_vec(),
         rhs.colidx().to_vec(),
-        rhs.data()
+        rhs.values()
             .iter()
             .map(|&v| self * v)
             .collect::<Vec<Complex64>>(),
@@ -105,8 +105,8 @@ fn mul<I: Integer, T: Scalar>(self: CSR<I, T>, rhs: &Vec<T>) -> Vec<T> {
 
 #[opimps::impl_ops_assign(std::ops::SubAssign)]
 fn sub_assign<I: Integer, T: Scalar>(self: &mut CSR<I, T>, rhs: CSR<I, T>) {
-    self.data
+    self.values
         .iter_mut()
-        .zip(rhs.data.iter())
+        .zip(rhs.values.iter())
         .for_each(|(a, b)| *a -= *b)
 }

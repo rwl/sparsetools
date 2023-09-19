@@ -22,7 +22,7 @@ where
             self.cols(),
             self.rowidx().to_vec(),
             self.colptr().to_vec(),
-            self.data().iter().map(|d| d.conj()).collect(),
+            self.values().iter().map(|d| d.conj()).collect(),
         )
         .unwrap()
     }
@@ -33,7 +33,7 @@ where
             self.cols(),
             self.rowidx().to_vec(),
             self.colptr().to_vec(),
-            self.data().iter().map(|d| d.real()).collect(),
+            self.values().iter().map(|d| d.real()).collect(),
         )
         .unwrap()
     }
@@ -44,7 +44,7 @@ where
             self.cols(),
             self.rowidx().to_vec(),
             self.colptr().to_vec(),
-            self.data().iter().map(|d| d.imag()).collect(),
+            self.values().iter().map(|d| d.imag()).collect(),
         )
         .unwrap()
     }

@@ -4,9 +4,9 @@ use anyhow::{format_err, Result};
 
 #[test]
 fn test_new() -> Result<()> {
-    let (rowptr, colidx, data) = test::c_csr_data();
+    let (rowptr, colidx, values) = test::c_csr_data();
 
-    let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+    let csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
 
     if csr.rows() != test::N {
         return Err(format_err!(

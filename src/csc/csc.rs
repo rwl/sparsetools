@@ -16,7 +16,7 @@ pub struct CSC<I, T> {
     cols: usize,
     pub(super) rowidx: Vec<I>,
     pub(super) colptr: Vec<I>,
-    pub(super) data: Vec<T>,
+    pub(super) values: Vec<T>,
 }
 
 impl<I: Integer, T: Scalar> CSC<I, T> {
@@ -27,7 +27,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         cols: usize,
         rowidx: Vec<I>,
         colptr: Vec<I>,
-        data: Vec<T>,
+        values: Vec<T>,
     ) -> Result<Self> {
         if colptr.len() != cols + 1 {
             return Err(format_err!("colptr has invalid length"));
@@ -36,15 +36,15 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         if rowidx.len() < nnz {
             return Err(format_err!("rowidx array has fewer than nnz elements"));
         }
-        if data.len() < nnz {
-            return Err(format_err!("data array has fewer than nnz elements"));
+        if values.len() < nnz {
+            return Err(format_err!("values array has fewer than nnz elements"));
         }
         Ok(Self {
             rows,
             cols,
             rowidx,
             colptr,
-            data,
+            values,
         })
     }
 
@@ -54,14 +54,14 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
         let mut colptr = Vec::<I>::new();
         let mut rowidx = Vec::<I>::new();
-        let mut data = Vec::new();
+        let mut values = Vec::new();
 
         let mut idxptr: usize = 0;
         for i in 0..cols {
             colptr.push(I::from(idxptr).unwrap());
             for j in 0..rows {
                 if a[j][i] != T::zero() {
-                    data.push(a[j][i]);
+                    values.push(a[j][i]);
                     rowidx.push(I::from(j).unwrap());
                     idxptr += 1
                 }
@@ -73,7 +73,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             cols,
             rowidx,
             colptr,
-            data,
+            values,
         };
         csc.prune().unwrap();
         csc
@@ -81,8 +81,8 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
     /// Creates a new CSC matrix with the given values on the main
     /// diagonal. The input is not copied.
-    pub fn with_diagonal(data: Vec<T>) -> Self {
-        let n = data.len();
+    pub fn with_diagonal(values: Vec<T>) -> Self {
+        let n = values.len();
         let mut rowidx = vec![I::zero(); n];
         for i in 0..rowidx.len() {
             rowidx[i] = I::from(i).unwrap();
@@ -96,7 +96,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             cols: n,
             rowidx,
             colptr,
-            data,
+            values,
         }
     }
 
@@ -121,8 +121,8 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     }
 
     /// Explicitly stored values (size nnz).
-    pub fn data(&self) -> &[T] {
-        &self.data
+    pub fn values(&self) -> &[T] {
+        &self.values
     }
 
     pub fn shape(&self) -> (usize, usize) {
@@ -139,21 +139,21 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     }
 
     //     /// Copy creates an identical CSC matrix with newly allocated
-    //     /// index, pointer and data slices.
+    //     /// index, pointer and values slices.
     //     pub fn copy(&self) -> CSC<I, T> {
     //         // let rowidx = vec!(I::zero(); self.rowidx.len());
     //         // let colptr = vec!(I::zero(); self.colptr.len());
-    //         // let data = vec!(T::zero(); self.data.len());
+    //         // let values = vec!(T::zero(); self.values.len());
     //         // copy(rowidx, self.rowidx);
     //         // copy(colptr, self.colptr);
-    //         // copy(data, self.data);
+    //         // copy(values, self.values);
     //
     //         CSC {
     //             rows: self.rows,
     //             cols: self.cols,
     //             rowidx: self.rowidx.clone(),
     //             colptr: self.colptr.clone(),
-    //             data: self.data.clone(),
+    //             values: self.values.clone(),
     //         }
     //     }
 
@@ -165,7 +165,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             self.rows,
             self.colptr.clone(),
             self.rowidx.clone(),
-            self.data.clone(),
+            self.values.clone(),
         )
         .unwrap()
     }
@@ -191,7 +191,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             self.colptr.len() - 1,
             &self.colptr,
             &mut self.rowidx,
-            &mut self.data,
+            &mut self.values,
         )
     }
 
@@ -207,7 +207,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             self.rows,
             &mut self.colptr,
             &mut self.rowidx,
-            &mut self.data,
+            &mut self.values,
         );
 
         self.prune().unwrap(); // nnz may have changed
@@ -222,11 +222,11 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         if self.rowidx.len() < nnz {
             return Err(format_err!("indexes array has fewer than nnz elements"));
         }
-        if self.data.len() < nnz {
-            return Err(format_err!("data array has fewer than nnz elements"));
+        if self.values.len() < nnz {
+            return Err(format_err!("values array has fewer than nnz elements"));
         }
 
-        self.data = self.data[..nnz].to_owned();
+        self.values = self.values[..nnz].to_owned();
         self.rowidx = self.rowidx[..nnz].to_owned();
         Ok(())
     }
@@ -247,7 +247,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             self.cols,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             x,
             &mut result,
         );
@@ -274,24 +274,24 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
 
         let mut colptr = vec![I::zero(); cols + 1];
         let mut rowidx = vec![I::zero(); nnz];
-        let mut data = vec![T::zero(); nnz];
+        let mut values = vec![T::zero(); nnz];
 
-        // csr_matmat(cols, rows, &x.colptr, &x.rowidx, &x.data, &self.colptr, &self.rowidx, &self.data, &mut colptr, &mut rowidx, &mut data);
+        // csr_matmat(cols, rows, &x.colptr, &x.rowidx, &x.values, &self.colptr, &self.rowidx, &self.values, &mut colptr, &mut rowidx, &mut values);
         csc_matmat(
             rows,
             cols,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             &x.colptr,
             &x.rowidx,
-            &x.data,
+            &x.values,
             &mut colptr,
             &mut rowidx,
-            &mut data,
+            &mut values,
         );
 
-        CSC::new(rows, cols, rowidx, colptr, data)
+        CSC::new(rows, cols, rowidx, colptr, values)
     }
 
     /// Creates a new CSC matrix with only the selected rows and columns of the receiver.
@@ -348,7 +348,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             self.rows,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             colidx,
             rowidx,
             &mut b_p,
@@ -361,7 +361,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             cols: colidx.len(),
             rowidx: b_j,
             colptr: b_p,
-            data: b_x,
+            values: b_x,
         })
     }
 
@@ -380,32 +380,32 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         let maxnnz = self.nnz() + x.nnz();
         let mut rowidx = vec![I::zero(); maxnnz];
         let mut colptr = vec![I::zero(); self.colptr.len()];
-        let mut data = vec![T::zero(); maxnnz];
+        let mut values = vec![T::zero(); maxnnz];
 
         csr_add_csr(
             self.cols,
             self.rows,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             &x.colptr,
             &x.rowidx,
-            &x.data,
+            &x.values,
             &mut colptr,
             &mut rowidx,
-            &mut data,
+            &mut values,
         );
 
         let newnnz = colptr[self.cols].to_usize().unwrap();
         let rowidx = &rowidx[..newnnz];
-        let data = &data[..newnnz];
+        let values = &values[..newnnz];
 
         CSC::new(
             self.rows,
             self.cols,
             rowidx.to_owned(),
             colptr,
-            data.to_owned(),
+            values.to_owned(),
         )
     }
 
@@ -425,32 +425,32 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         let maxnnz = self.nnz() + x.nnz();
         let mut rowidx = vec![I::zero(); maxnnz];
         let mut colptr = vec![I::zero(); self.colptr.len()];
-        let mut data = vec![T::zero(); maxnnz];
+        let mut values = vec![T::zero(); maxnnz];
 
         csr_sub_csr(
             self.cols,
             self.rows,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             &x.colptr,
             &x.rowidx,
-            &x.data,
+            &x.values,
             &mut colptr,
             &mut rowidx,
-            &mut data,
+            &mut values,
         );
 
         let newnnz = colptr[self.cols].to_usize().unwrap();
         let rowidx = &rowidx[..newnnz];
-        let data = &data[..newnnz];
+        let values = &values[..newnnz];
 
         CSC::new(
             self.rows,
             self.cols,
             rowidx.to_owned(),
             colptr,
-            data.to_owned(),
+            values.to_owned(),
         )
     }
 
@@ -458,17 +458,17 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
     pub fn to_csr(&self) -> CSR<I, T> {
         let mut rowptr = vec![I::zero(); self.rows + 1];
         let mut colidx = vec![I::zero(); self.nnz()];
-        let mut data = vec![T::zero(); self.nnz()];
+        let mut values = vec![T::zero(); self.nnz()];
 
         csr_tocsc(
             self.cols,
             self.rows,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             &mut rowptr,
             &mut colidx,
-            &mut data,
+            &mut values,
         );
 
         // csc_tocsr(
@@ -476,13 +476,13 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         //     self.cols,
         //     &self.rowidx,
         //     &self.colptr,
-        //     &self.data,
+        //     &self.values,
         //     &mut colidx,
         //     &mut rowptr,
-        //     &mut data,
+        //     &mut values,
         // );
 
-        CSR::new(self.rows, self.cols, rowptr, colidx, data).unwrap()
+        CSR::new(self.rows, self.cols, rowptr, colidx, values).unwrap()
     }
 
     /// Converts the matrix into Coordinate (Coo) format.
@@ -490,20 +490,20 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         let nnz = self.nnz();
         let mut rowidx = vec![I::zero(); nnz];
         let mut colidx = vec![I::zero(); nnz];
-        let mut data = vec![T::zero(); nnz];
+        let mut values = vec![T::zero(); nnz];
 
         csr_tocoo(
             self.cols,
             self.rows,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             &mut colidx,
             &mut rowidx,
-            &mut data,
+            &mut values,
         );
 
-        Coo::new(self.rows, self.cols, rowidx, colidx, data).unwrap()
+        Coo::new(self.rows, self.cols, rowidx, colidx, values).unwrap()
     }
 
     /// Converts the matrix into a dense 2D slice.
@@ -521,7 +521,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
             self.rows,
             &self.colptr,
             &self.rowidx,
-            &self.data,
+            &self.values,
             &mut diag,
         );
         diag
@@ -539,7 +539,7 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
                 if !buf.is_empty() {
                     buf.push('\n');
                 }
-                buf.push_str(&format!("({}, {}) {}", i, j, self.data[ii]));
+                buf.push_str(&format!("({}, {}) {}", i, j, self.values[ii]));
             }
         }
         buf

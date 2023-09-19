@@ -10,7 +10,7 @@ fn neg<I: Integer, T: Scalar + Neg<Output = T>>(self: CSC<I, T>) -> CSC<I, T> {
         self.cols(),
         self.rowidx,
         self.colptr,
-        self.data.iter().map(|&a| -a).collect(),
+        self.values.iter().map(|&a| -a).collect(),
     )
     .unwrap()
 }

@@ -4,8 +4,8 @@ use anyhow::{format_err, Result};
 
 #[test]
 fn test_new() -> Result<()> {
-    let (rowidx, colidx, data) = test::coo_data();
-    let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let (rowidx, colidx, values) = test::coo_data();
+    let coo = Coo::new(test::N, test::N, rowidx, colidx, values)?;
     if coo.rows() != test::N {
         return Err(format_err!(
             "rows, expected {} actual {}",
@@ -126,8 +126,8 @@ fn test_with_diagonal() -> Result<()> {
 
 #[test]
 fn test_transpose() -> Result<()> {
-    let (rowidx, colidx, data) = test::coo_data();
-    let coo0 = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let (rowidx, colidx, values) = test::coo_data();
+    let coo0 = Coo::new(test::N, test::N, rowidx, colidx, values)?;
     let coo = coo0.transpose();
     if coo.rows() != test::N {
         return Err(format_err!(
@@ -165,15 +165,15 @@ fn test_transpose() -> Result<()> {
 
 #[test]
 fn test_add() -> Result<()> {
-    let (rowidx, colidx, data) = test::coo_data();
+    let (rowidx, colidx, values) = test::coo_data();
     let coo1 = Coo::new(
         test::N,
         test::N,
         rowidx.clone(),
         colidx.clone(),
-        data.clone(),
+        values.clone(),
     )?;
-    let coo2 = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let coo2 = Coo::new(test::N, test::N, rowidx, colidx, values)?;
 
     let csr = coo1 + coo2.t();
 
@@ -217,8 +217,8 @@ fn test_add() -> Result<()> {
 
 #[test]
 fn test_to_dense() -> Result<()> {
-    let (rowidx, colidx, data) = test::coo_data();
-    let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let (rowidx, colidx, values) = test::coo_data();
+    let coo = Coo::new(test::N, test::N, rowidx, colidx, values)?;
 
     test::assert_dense(&coo.to_dense(), &test::dense_data())?;
     Ok(())
@@ -226,8 +226,8 @@ fn test_to_dense() -> Result<()> {
 
 #[test]
 fn test_to_csc() -> Result<()> {
-    let (rowidx, colidx, data) = test::coo_data();
-    let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let (rowidx, colidx, values) = test::coo_data();
+    let coo = Coo::new(test::N, test::N, rowidx, colidx, values)?;
     let csc = coo.to_csc();
 
     if csc.rows() != test::N {
@@ -245,23 +245,23 @@ fn test_to_csc() -> Result<()> {
         ));
     }
 
-    let (rowidx, colptr, data) = test::csc_data();
+    let (rowidx, colptr, values) = test::csc_data();
     test::assert_slice(&csc.rowidx(), &rowidx)?;
     test::assert_slice(&csc.colptr(), &colptr)?;
-    test::assert_slice(&csc.data(), &data)?;
+    test::assert_slice(&csc.values(), &values)?;
 
     Ok(())
 }
 
 #[test]
 fn test_to_csr_sum_duplicates() -> Result<()> {
-    let (rowidx0, colidx0, data0) = test::coo_data();
+    let (rowidx0, colidx0, values0) = test::coo_data();
 
     let rowidx = [rowidx0.clone(), rowidx0.clone()].concat();
     let colidx = [colidx0.clone(), colidx0.clone()].concat();
-    let data = [data0.clone(), data0.clone()].concat();
+    let values = [values0.clone(), values0.clone()].concat();
 
-    let coo = Coo::new(test::N, test::N, rowidx, colidx, data)?;
+    let coo = Coo::new(test::N, test::N, rowidx, colidx, values)?;
     let csr = coo.to_csr();
 
     if csr.rows() != test::N {
@@ -299,11 +299,11 @@ fn test_to_csr_sum_duplicates() -> Result<()> {
 
 #[test]
 fn test_v_stack() -> Result<()> {
-    let (rowidx1, colidx1, data1) = test::coo_data();
-    let coo1 = Coo::new(test::N, test::N, rowidx1, colidx1, data1)?;
+    let (rowidx1, colidx1, values1) = test::coo_data();
+    let coo1 = Coo::new(test::N, test::N, rowidx1, colidx1, values1)?;
 
-    let (rowidx2, colidx2, data2) = test::coo_data();
-    let coo2 = Coo::new(test::N, test::N, rowidx2, colidx2, data2)?;
+    let (rowidx2, colidx2, values2) = test::coo_data();
+    let coo2 = Coo::new(test::N, test::N, rowidx2, colidx2, values2)?;
 
     let coo = Coo::v_stack(&coo1, &coo2)?;
 
@@ -316,11 +316,11 @@ fn test_v_stack() -> Result<()> {
 
 #[test]
 fn test_h_stack() -> Result<()> {
-    let (rowidx1, colidx1, data1) = test::coo_data();
-    let coo1 = Coo::new(test::N, test::N, rowidx1, colidx1, data1)?;
+    let (rowidx1, colidx1, values1) = test::coo_data();
+    let coo1 = Coo::new(test::N, test::N, rowidx1, colidx1, values1)?;
 
-    let (rowidx2, colidx2, data2) = test::coo_data();
-    let coo2 = Coo::new(test::N, test::N, rowidx2, colidx2, data2)?;
+    let (rowidx2, colidx2, values2) = test::coo_data();
+    let coo2 = Coo::new(test::N, test::N, rowidx2, colidx2, values2)?;
 
     let coo = Coo::h_stack(&coo1, &coo2)?;
 

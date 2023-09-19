@@ -6,9 +6,9 @@ use anyhow::{format_err, Result};
 
 #[test]
 fn test_new() -> Result<()> {
-    let (rowptr, colidx, data) = test::csr_data();
+    let (rowptr, colidx, values) = test::csr_data();
 
-    let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+    let csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
 
     if csr.rows() != test::N {
         return Err(format_err!(
@@ -69,21 +69,21 @@ fn test_with_diag() -> Result<()> {
 #[test]
 fn test_has_sorted_indexes() -> Result<()> {
     {
-        let (rowptr, colidx, data) = test::csr_data();
+        let (rowptr, colidx, values) = test::csr_data();
 
-        let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+        let csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
         if !csr.has_sorted_indexes() {
             return Err(format_err!("indexes must be sorted"));
         }
     }
     {
-        let (rowptr, mut colidx, mut data) = test::csr_data();
+        let (rowptr, mut colidx, mut values) = test::csr_data();
 
         // Swap values on row[1].
         colidx.swap(1, 2);
-        data.swap(1, 2);
+        values.swap(1, 2);
 
-        let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+        let csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
         if csr.has_sorted_indexes() {
             return Err(format_err!("indexes must not be sorted"));
         }
@@ -93,13 +93,13 @@ fn test_has_sorted_indexes() -> Result<()> {
 
 #[test]
 fn test_sort_indexes() -> Result<()> {
-    let (rowptr, mut colidx, mut data) = test::csr_data();
+    let (rowptr, mut colidx, mut values) = test::csr_data();
 
     // Swap values on row[1].
     colidx.swap(1, 2);
-    data.swap(1, 2);
+    values.swap(1, 2);
 
-    let mut csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+    let mut csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
     csr.sort_indexes();
     if !csr.has_sorted_indexes() {
         return Err(format_err!("indexes must be sorted"));
@@ -109,9 +109,9 @@ fn test_sort_indexes() -> Result<()> {
 
 #[test]
 fn test_to_coo() -> Result<()> {
-    let (rowptr, colidx, data) = test::csr_data();
+    let (rowptr, colidx, values) = test::csr_data();
 
-    let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+    let csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
     let coo = csr.to_coo();
     if coo.rows() != test::N {
         return Err(format_err!(
@@ -161,9 +161,9 @@ fn test_to_coo() -> Result<()> {
 
 #[test]
 fn test_to_csc() -> Result<()> {
-    let (rowptr, colidx, data) = test::csr_data();
+    let (rowptr, colidx, values) = test::csr_data();
 
-    let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+    let csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
     let csc = csr.to_csc();
     if csc.rows() != test::N {
         return Err(format_err!(
@@ -229,8 +229,8 @@ fn test_transpose() -> Result<()> {
             csc.nnz()
         ));
     }
-    // if &csc.Data()[0] != &csr.Data()[0] {
-    // 	t.Error("transpose, data must not be copied")
+    // if &csc.values()[0] != &csr.values()[0] {
+    // 	t.Error("transpose, values must not be copied")
     // }
     for (i, row) in csc.to_dense().iter().enumerate() {
         for (j, &v) in row.iter().enumerate() {
@@ -306,9 +306,9 @@ fn test_mat_mat() -> Result<()> {
 
 #[test]
 fn test_select() -> Result<()> {
-    let (rowptr, colidx, data) = csr_data();
+    let (rowptr, colidx, values) = csr_data();
 
-    let csr = CSR::new(test::N, test::N, rowptr, colidx, data)?;
+    let csr = CSR::new(test::N, test::N, rowptr, colidx, values)?;
     let rowidx = vec![1, 2, 3];
     let colidx = vec![0, 1, 3];
 

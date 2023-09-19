@@ -11,7 +11,7 @@ use std::ops::Deref;
 pub struct DoK<I, T> {
     rows: usize,
     cols: usize,
-    data: HashMap<(I, I), T>,
+    values: HashMap<(I, I), T>,
 }
 
 impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
@@ -19,7 +19,7 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
         Self {
             rows,
             cols,
-            data: HashMap::new(),
+            values: HashMap::new(),
         }
     }
 
@@ -27,7 +27,7 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
         Self {
             rows,
             cols,
-            data: HashMap::with_capacity(capacity),
+            values: HashMap::with_capacity(capacity),
         }
     }
 
@@ -59,11 +59,11 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
     }
 
     pub fn nnz(&self) -> usize {
-        self.data.len()
+        self.values.len()
     }
 
     pub fn get(&self, i: I, j: I) -> T {
-        match self.data.get(&(i, j)) {
+        match self.values.get(&(i, j)) {
             None => T::zero(),
             Some(&v) => v,
         }
@@ -77,9 +77,9 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
             return Err(format_err!("col index {} out of range {}", j, self.cols));
         }
         if v == T::zero() {
-            self.data.remove(&(i, j));
+            self.values.remove(&(i, j));
         } else {
-            self.data.insert((i, j), v);
+            self.values.insert((i, j), v);
         }
         Ok(())
     }
@@ -94,26 +94,26 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
 
     pub fn to_dense(&self) -> Vec<Vec<T>> {
         let mut d = vec![vec![T::zero(); self.cols]; self.rows];
-        for (&(i, j), &v) in &self.data {
+        for (&(i, j), &v) in &self.values {
             d[i.to_usize().unwrap()][j.to_usize().unwrap()] = v;
         }
         d
     }
 
     pub fn to_coo(&self) -> Coo<I, T> {
-        let nnz = self.data.len();
+        let nnz = self.values.len();
 
         let mut rowidx = Vec::with_capacity(nnz);
         let mut colidx = Vec::with_capacity(nnz);
-        let mut data = Vec::with_capacity(nnz);
+        let mut values = Vec::with_capacity(nnz);
 
-        for (&(i, j), &v) in &self.data {
+        for (&(i, j), &v) in &self.values {
             rowidx.push(i);
             colidx.push(j);
-            data.push(v);
+            values.push(v);
         }
 
-        Coo::new(self.rows, self.cols, rowidx, colidx, data).unwrap()
+        Coo::new(self.rows, self.cols, rowidx, colidx, values).unwrap()
     }
 
     pub fn to_csc(&self) -> CSC<I, T> {
@@ -126,7 +126,7 @@ impl<I: Integer + Hash, T: Scalar> DoK<I, T> {
 
     pub fn to_string(&self) -> String {
         let mut buf: String = String::new();
-        for (&(i, j), &v) in &self.data {
+        for (&(i, j), &v) in &self.values {
             if !buf.is_empty() {
                 buf.push('\n');
             }
@@ -140,6 +140,6 @@ impl<I, T> Deref for DoK<I, T> {
     type Target = HashMap<(I, I), T>;
 
     fn deref(&self) -> &Self::Target {
-        &self.data
+        &self.values
     }
 }
