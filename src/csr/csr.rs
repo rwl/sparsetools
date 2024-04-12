@@ -54,7 +54,7 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         Self {
             rows,
             cols,
-            rowptr: (0..rows + 1).map(|i| I::from(i).unwrap()).collect(),
+            rowptr: vec![I::zero(); rows + 1],
             colidx: vec![I::zero(); 0],
             values: vec![T::zero(); 0],
         }
