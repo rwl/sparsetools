@@ -478,6 +478,9 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
             vec![],
             None,
         );
-        String::from_utf8(w).unwrap()
+        String::from_utf8(w)
+            .unwrap()
+            .trim_end_matches("\n")
+            .to_string()
     }
 }
