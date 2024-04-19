@@ -141,6 +141,11 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
         &self.values
     }
 
+    /// Explicitly stored values (size nnz).
+    pub fn values_mut(&mut self) -> &mut [T] {
+        &mut self.values
+    }
+
     /// Returns the count of explicitly-stored values (nonzeros).
     pub fn nnz(&self) -> usize {
         if self.rowptr.is_empty() {

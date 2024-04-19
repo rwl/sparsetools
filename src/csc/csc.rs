@@ -125,6 +125,11 @@ impl<I: Integer, T: Scalar> CSC<I, T> {
         &self.values
     }
 
+    /// Explicitly stored values (size nnz).
+    pub fn values_mut(&mut self) -> &mut [T] {
+        &mut self.values
+    }
+
     pub fn shape(&self) -> (usize, usize) {
         (self.rows, self.cols)
     }
