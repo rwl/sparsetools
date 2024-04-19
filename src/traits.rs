@@ -28,12 +28,17 @@ impl Float for f64 {}
 impl Float for f32 {}
 
 pub trait Complex<F: Float>: Scalar {
+    fn new(re: F, im: F) -> Self;
     fn conj(&self) -> Self;
     fn real(&self) -> F;
     fn imag(&self) -> F;
 }
 
 impl Complex<f64> for num_complex::Complex<f64> {
+    fn new(re: f64, im: f64) -> Self {
+        Self::new(re, im)
+    }
+
     fn conj(&self) -> Self {
         self.conj()
     }
@@ -48,6 +53,10 @@ impl Complex<f64> for num_complex::Complex<f64> {
 }
 
 impl Complex<f32> for num_complex::Complex<f32> {
+    fn new(re: f32, im: f32) -> Self {
+        Self::new(re, im)
+    }
+
     fn conj(&self) -> Self {
         self.conj()
     }
