@@ -12,6 +12,9 @@ pub mod csr;
 pub mod dok;
 pub mod graph;
 
+#[cfg(feature = "eigs")]
+pub mod eigen;
+
 #[cfg(test)]
 mod test;
 
