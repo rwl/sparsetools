@@ -488,4 +488,20 @@ impl<I: Integer, T: Scalar> CSR<I, T> {
             .trim_end_matches("\n")
             .to_string()
     }
+
+    pub fn get(&self, i: I, j: I) -> T {
+        let i = i.to_usize().unwrap();
+        let j = j.to_usize().unwrap();
+        let start = self.rowptr[i].to_usize().unwrap();
+        let end = self.rowptr[i + 1].to_usize().unwrap();
+
+        // Iterate over the column indices of row k.
+        for k in start..end {
+            if self.colidx[k].to_usize().unwrap() == j {
+                return self.values[k]; // Found the element at (i, j).
+            }
+        }
+
+        T::zero() // If not found, the element is zero.
+    }
 }

@@ -102,11 +102,3 @@ fn mul<I: Integer, T: Scalar>(self: CSR<I, T>, rhs: &[T]) -> Vec<T> {
 fn mul<I: Integer, T: Scalar>(self: CSR<I, T>, rhs: &Vec<T>) -> Vec<T> {
     self.mat_vec(rhs).unwrap()
 }
-
-#[opimps::impl_ops_assign(std::ops::SubAssign)]
-fn sub_assign<I: Integer, T: Scalar>(self: &mut CSR<I, T>, rhs: CSR<I, T>) {
-    self.values
-        .iter_mut()
-        .zip(rhs.values.iter())
-        .for_each(|(a, b)| *a -= *b)
-}
