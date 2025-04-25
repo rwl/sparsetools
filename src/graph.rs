@@ -33,8 +33,10 @@ pub enum Connection {
 ///
 /// # References
 ///
+/// ```txt
 /// - [1] D. J. Pearce, "An Improved Algorithm for Finding the Strongly
 ///   Connected Components of a Directed Graph", Technical Report, 2005
+/// ```
 ///
 /// # Example
 /// ```
